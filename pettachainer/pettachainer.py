@@ -34,8 +34,8 @@ class PeTTaChainer:
     def add_atom(self, atom: str) -> str:
         return self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
 
-    def query(self, atom: str) -> List[str]:
-        atoms = self.handler.process_metta_string(f"!(query (S (S Z)) {self.kb} {atom})")
+    def query(self, atom: str, depth: int = 10) -> List[str]:
+        atoms = self.handler.process_metta_string(f"!(query (fromNumber {depth}) {self.kb} {atom})")
         return atoms
 
 if __name__ == '__main__':
