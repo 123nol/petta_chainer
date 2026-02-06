@@ -4,8 +4,31 @@
 !(add-atom &kb (: kb prf (Count B 2) (STV 1.0 1.0)))
 !(add-atom &kb (: kb prf (Count C 3) (STV 1.0 1.0)))
 
-(= (AddCount $acc (Count $name $n)) (+ $acc $n))
 (= (KeepAcc $acc $elem) $acc)
+
+!(compileadd kb (: foldRule
+    (Implication
+        (Premises
+            (FoldAll (Count $name $n) $n 0 AddCount -> $total))
+        (Conclusions
+            (Count Total $total)))
+    (STV 1.0 1.0)))
+
+!(test
+    (query (fromNumber 10) kb (: $prf (Count Total $x) $tv))
+    (: (foldRule foldall) (Count Total 6) (STV 1.0 1.0)))
+
+!(compileadd kb (: foldZeroRule
+    (Implication
+        (Premises
+            (FoldAll (NoFact $x) $x 42 KeepAcc -> $total))
+        (Conclusions
+            (Count MissingTotal $total)))
+    (STV 1.0 1.0)))
+
+!(test
+    (query (fromNumber 10) kb (: $prf (Count MissingTotal $x) $tv))
+    (: (foldZeroRule foldall) (Count MissingTotal 42) (STV 1.0 1.0)))
 
 !(compileadd kb (: apbisc
     (Implication
@@ -18,29 +41,5 @@
     (STV 1.0 1.0)))
 
 !(test
-    (> (size-atom (collapse (query (fromNumber 10) kb (: $prf (Count C 3) $tv)))) 0)
-    True)
-
-!(compileadd kb (: foldRule
-    (Implication
-        (Premises
-            (FoldAll (Count $name $n) 0 AddCount -> $total))
-        (Conclusions
-            (Count Total $total)))
-    (STV 1.0 1.0)))
-
-!(test
-    (> (size-atom (collapse (query (fromNumber 10) kb (: $prf (Count Total 6) $tv)))) 0)
-    True)
-
-!(compileadd kb (: foldZeroRule
-    (Implication
-        (Premises
-            (FoldAll (NoFact $x) 42 KeepAcc -> $total))
-        (Conclusions
-            (Count MissingTotal $total)))
-    (STV 1.0 1.0)))
-
-!(test
-    (> (size-atom (collapse (query (fromNumber 10) kb (: $prf (Count MissingTotal 42) $tv)))) 0)
-    True)
+    (query (fromNumber 10) kb (: prf (Count C $x) $tv))
+    (: prf (Count C 3) (STV 1.0 1.0)))

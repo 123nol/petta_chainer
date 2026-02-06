@@ -26,14 +26,14 @@
 
 (= (foldall-eval $fun $acc ()) $acc)
 (= (foldall-eval $fun $acc (cons $elem $tail))
-  (let $call ($fun $acc $elem)
-  (let $nacc (eval $call)
+  (let $call (cons $fun (cons $acc (cons $elem ())))
+  (let $nacc (reduce (reduce $call))
        (foldall-eval $fun $nacc $tail))))
 
-(= (chainer $depth (FoldAllEval $kb $pattern $init $fun $out $tv))
-  (let $matches (collapse (match &kb (: $kb $prf $pattern $tvin) $pattern))
+(= (chainer $depth (FoldAllEval $kb $pattern $value $init $fun $out $tv))
+  (let $matches (collapse (match &kb (: $kb $prf $pattern $tvin) $value))
   (let $res (foldall-eval $fun $init $matches)
-  (let $out $res (FoldAllEval $kb $pattern $init $fun $out (STV 1.0 1.0))))))
+  (let $out $res (FoldAllEval $kb $pattern $value $init $fun $out (STV 1.0 1.0))))))
 
 (= (chainer (S $depth) $goal)
   (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
@@ -58,14 +58,17 @@
 
 (= (NotFormula (STV $s $c) (STV (- 1 $s) $c)))
 
-(= (InversionFormula (STV $sa $ca) (STV $sb $cb) (Stv $sab $cab)) (STV (/ (* $sb $sab) $sa) (min-atom ($ca $cb $cab)))) 
+(= (InversionFormula (STV $sa $ca) (STV $sb $cb) (STV $sab $cab)) (STV (/ (* $sb $sab) $sa) (min-atom ($ca $cb $cab)))) 
 
 (= (Equal $a $b) (== $a $b))
 (= (NotEqual $a $b) (not (== $a $b)))
 
+; Reusable helpers for FoldAll-generated programs.
+(= (AddCount $acc $n) (+ $acc $n))
+
 
 (= (compileadd $kb $stmt)
-  (let $atoms (traceid (mm2compile $kb $stmt)) (add-atom &kb $atoms)))
+  (let $atoms (mm2compile $kb $stmt) (add-atom &kb $atoms)))
 
 
 (= (query $depth $kb $stmt)

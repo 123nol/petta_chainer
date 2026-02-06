@@ -30,8 +30,10 @@
 (= (addidx () $idx) ())
 
 ; Translate a sequence into the conjunction form used by existing compilation logic.
-(= (seq2expr (cons $head ())) $head)
-(= (seq2expr (cons $head $tail)) (cons And (cons $head $tail)))
+(= (seq2expr (cons $head $tail))
+   (if (== $tail ())
+       $head
+       (cons And (cons $head $tail))))
 
 (= (compile-outputs (: $kb $NNprf (@ $type (cons $head $tail)) $NNtv))
     (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
@@ -43,12 +45,12 @@
 
 (= (in_map $kb $elem) (prem (: $kb $prf $elem $tv) $elem $tv $prf))
 (= (in_map $kb (Compute $f $args -> $res)) (prem (CPU $f $args $res) (Compute $f $args -> $res) (STV 1.0 1.0) cpu))
-(= (in_map $kb (FoldAll $pattern $init $fun -> $out)) (prem (FoldAllEval $kb $pattern $init $fun $out (STV 1.0 1.0)) (FoldAll $pattern $init $fun -> $out) (STV 1.0 1.0) foldall))
+(= (in_map $kb (FoldAll $pattern $value $init $fun -> $out)) (prem (FoldAllEval $kb $pattern $value $init $fun $out (STV 1.0 1.0)) (FoldAll $pattern $value $init $fun -> $out) (STV 1.0 1.0) foldall))
 
 ;Helper to match only on the tv of a statement
 (= (tv $tv) (: $kb $prf $elem $tv))
 (= (tv $tv) (CPU $formula $args $tv))
-(= (tv $tv) (FoldAllEval $kb $pattern $init $fun $out $tv))
+(= (tv $tv) (FoldAllEval $kb $pattern $value $init $fun $out $tv))
 
 (= (in_fold $formula
             ((@ $premises (head (tv $tv))) (: $kb $cclprf $ccltype $ccltv))
@@ -71,6 +73,13 @@
 ;        (($rcclprf $rccltype) ((reverse $cclprf) (reverse $ccltype)))
 ;       )
 ;     ((reverse $resNNprms) |- ((: $kb (cons conjunction $rcclprf) (cons $head $rccltype) $ccltv)))))
+
+; Allow standalone executable premises without requiring an And wrapper.
+(= (compile-inputs (: $kb $prf (Compute $f $args -> $res) $tv))
+   ((cons (CPU $f $args $res) ()) |- ((: $kb cpu (Compute $f $args -> $res) (STV 1.0 1.0)))))
+
+(= (compile-inputs (: $kb $prf (FoldAll $pattern $value $init $fun -> $out) $tv))
+   ((cons (FoldAllEval $kb $pattern $value $init $fun $out (STV 1.0 1.0)) ()) |- ((: $kb foldall (FoldAll $pattern $value $init $fun -> $out) (STV 1.0 1.0)))))
 
 (= (compile-inputs (: $kb $prf (cons $head $tail) $tv))
      (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
