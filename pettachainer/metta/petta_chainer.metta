@@ -31,7 +31,7 @@
        (foldall-eval $fun $nacc $tail))))
 
 (= (chainer $depth (FoldAllEval $kb $pattern $value $init $fun $out $tv))
-  (let $matches (collapse (match &kb (: $kb $prf $pattern $tvin) $value))
+  (let $matches (collapse (let (: $kb $prf $pattern $tvin) (chainer $depth (: $kb $prf $pattern $tvin)) $value))
   (let $res (foldall-eval $fun $init $matches)
   (let $out $res (FoldAllEval $kb $pattern $value $init $fun $out (STV 1.0 1.0))))))
 
@@ -62,9 +62,6 @@
 
 (= (Equal $a $b) (== $a $b))
 (= (NotEqual $a $b) (not (== $a $b)))
-
-; Reusable helpers for FoldAll-generated programs.
-(= (AddCount $acc $n) (+ $acc $n))
 
 
 (= (compileadd $kb $stmt)
