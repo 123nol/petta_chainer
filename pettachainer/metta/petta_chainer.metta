@@ -62,4 +62,4 @@
   (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
        (pretty (chainer $depth $query)))))
 
-!(add-atom &kb (rules (((CPU $f $args $res) Nil) |- (: $kb cpu (Compute $f $args $res) (STV 1.0 1.0)))))
+!(add-atom &kb (rules (((CPU $f $args $res) Nil) |- (: $kb cpu (Compute $f $args -> $res) (STV 1.0 1.0)))))
