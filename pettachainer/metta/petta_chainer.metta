@@ -33,10 +33,16 @@
        ($other 1.0)
      )))
 
-;; Confidence from a concrete proved premise.
-(= (proof-confidence (: $_kb $_prf $_type $tv)) (tv-confidence $tv))
-(= (proof-confidence (CPU $_fun $_args $res)) (tv-confidence $res))
-(= (proof-confidence $_proof) 1.0)
+;; Confidence from a concrete proved premise (deterministic).
+(= (proof-confidence $proof)
+   (case $proof
+     (
+       ((: $_kb $_prf $_type $tv)
+        (tv-confidence $tv))
+       ((CPU $_fun $_args $res)
+        (tv-confidence $res))
+       ($other 1.0)
+     )))
 
 (= (premises-expected-confidence Nil) 1.0)
 (= (premises-expected-confidence ()) 1.0)
@@ -55,20 +61,37 @@
            false)))
 
 ;; Build initial queue from all matching rule applications.
-(= (candidate-from-match ($args |- $goal))
+(= (candidate-from-match* $max-score $cont ($args |- $goal))
    (let (: $_kb $prf $_type $_tv) $goal
         (if (is-inversion-proof $prf)
             (empty)
-            (let $score (premises-expected-confidence $args)
-                 (qitem $score (cand ($args |- $goal) $score) $goal)))))
+            (let $score (min $max-score (premises-expected-confidence $args))
+                 (qitem $score (cand ($args |- $goal) $score $cont) $goal)))))
 
-(= (initial-candidate $goal)
+(= (initial-candidate* $max-score $cont $goal)
    (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
-        (candidate-from-match ($args |- $goal))))
+        (candidate-from-match* $max-score $cont ($args |- $goal))))
 
-(= (build-initial-pq $pq $goal)
-   (let $items (collapse (initial-candidate $goal))
+(= (build-initial-pq* $pq $max-score $cont $goal)
+   (let $items (collapse (initial-candidate* $max-score $cont $goal))
         (hpq-insert-all $pq $items)))
+
+(= (direct-goal-items $steps $max-score $cont (CPU $fun $args $_res))
+   (if (<= $steps 0)
+       (empty)
+       (let $res (cpu-call (- $steps 1) $fun $args)
+            (let $proof (CPU $fun $args $res)
+                 (let $score (min $max-score (proof-confidence $proof))
+                      (qitem $score (cand (Nil |- $proof) $score $cont) $proof))))) )
+
+(= (direct-goal-items $steps $max-score $cont $goal)
+   (let $proof (match &kb $goal $goal)
+        (let $score (min $max-score (proof-confidence $proof))
+             (qitem $score (cand (Nil |- $proof) $score $cont) $proof))))
+
+(= (enqueue-goal-items $steps $pq $max-score $cont $goal)
+   (let $pq1 (hpq-insert-all $pq (collapse (direct-goal-items $steps $max-score $cont $goal)))
+        (build-initial-pq* $pq1 $max-score $cont $goal)))
 
 (= (qitem-priority-key (qitem $prio $_args $_goal))
    (- 0 $prio))
@@ -82,9 +105,10 @@
 (= (hpq-insert (hpq $heap $seen) $item)
    (let $key (qitem-key $item)
         (if (is-member $key $seen)
-            (hpq $heap $seen)
-            (hpq (add_to_heap $heap (qitem-priority-key $item) $item)
-                 (cons $key $seen)))))
+            (trace! (hpq skip $item (hpq-size (hpq $heap $seen))) (hpq $heap $seen))
+            (trace! (hpq push $item (hpq-size (hpq $heap $seen)))
+                 (hpq (add_to_heap $heap (qitem-priority-key $item) $item)
+                      (cons $key $seen))))))
 
 (= (hpq-insert-all $pq ()) $pq)
 (= (hpq-insert-all $pq (cons $item $tail))
@@ -94,18 +118,14 @@
    (if (== (heap_size $heap) 0)
        ()
        (let $rest-heap (get_from_heap $heap $_priority $item)
-            ($item (hpq $rest-heap $seen)))))
+            (trace! (hpq pop $item (hpq-size (hpq $rest-heap $seen)))
+                 ($item (hpq $rest-heap $seen))))))
 
-;; Expand one candidate by proving exactly one next premise.
-(= (expand-candidate $steps $visited $pq (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g))
-   (let $prem (chainer-v $steps $visited $pq $prem)
-        (let $prem-score (min (proof-confidence $prem) (premise-expected-confidence $prem))
-        (let $new-score (min $score $prem-score)
-             (qitem $new-score (cand ($rest |- $goal) $new-score) $goal)))))
-(= (expand-candidate $steps $visited $pq (qitem $_prio (cand (Nil |- $_goal) $_score) $_g))
-   (empty))
-(= (expand-candidate $steps $visited $pq (qitem $_prio (cand (() |- $_goal) $_score) $_g))
-   (empty))
+(= (resume-frame $pq $proved-goal (frame $prem $rest $goal $parent-score) $cont)
+   (let $prem $proved-goal
+        (let $prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $prem))
+             (let $new-score (min $parent-score $prem-score)
+                       (hpq-insert $pq (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))))
 
 ;; Best-first over partially-applied rule candidates.
 (= (search-rules $steps $visited $pq)
@@ -114,22 +134,21 @@
        (let ($item $pq-rest) (hpq-pop $pq)
             (search-rules-step $steps $visited $item $pq-rest))))
 
-(= (search-rules-step $steps $visited (qitem $_prio (cand (Nil |- $goal) $_score) $_g) $pq-rest)
+(= (search-rules-step $steps $visited (qitem $_prio (cand (Nil |- $goal) $_score ()) $_g) $pq-rest)
    (if (<= $steps 0)
        ()
        (cons $goal (search-rules (- $steps 1) $visited $pq-rest))))
-(= (search-rules-step $steps $visited (qitem $_prio (cand (() |- $goal) $_score) $_g) $pq-rest)
+
+(= (search-rules-step $steps $visited (qitem $_prio (cand (Nil |- $proved-goal) $_score (cons $frame $cont)) $_g) $pq-rest)
+   (let $pq2 (resume-frame $pq-rest $proved-goal $frame $cont)
+        (search-rules $steps $visited $pq2)))
+
+(= (search-rules-step $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $pq-rest)
    (if (<= $steps 0)
        ()
-       (cons $goal (search-rules (- $steps 1) $visited $pq-rest))))
-(= (search-rules-step $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g) $pq-rest)
-   (if (<= $steps 0)
-       ()
-         (let $new-items (collapse (expand-candidate $steps $visited $pq-rest (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g)))
-             (if (== $new-items ())
-                 (search-rules $steps $visited $pq-rest)
-                 (let $new-pq (hpq-insert-all $pq-rest $new-items)
-                      (search-rules $steps $visited $new-pq))))))
+       (let $frame (frame $prem $rest $goal $score)
+            (let $new-pq (enqueue-goal-items $steps $pq-rest $score (cons $frame $cont) $prem)
+                 (search-rules $steps $visited $new-pq)))) )
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
@@ -142,22 +161,13 @@
            (cons $fun $args))
        (reduce (reduce $call))))
 
-(= (chainer-v $steps $visited $pq (CPU $fun $args $res))
-  (if (<= $steps 0)
-      (empty)
-      (let $res (cpu-call (- $steps 1) $fun $args)
-           (CPU $fun $args $res))))
-
-(= (chainer-v $steps $visited $pq $goal)
-  (match &kb $goal $goal))
-
 (= (chainer-v $steps $visited $pq $goal)
    (let $k (goal-key $goal)
        (if (or (<= $steps 0) (is-member $k $visited))
            (empty)
-           (let $pq2 (build-initial-pq $pq $goal)
-                (let $results (search-rules $steps (cons $k $visited) $pq2)
-                     (superpose $results))))))
+           (let $pq2 (enqueue-goal-items $steps $pq 1.0 () $goal)
+                (search-rules $steps (cons $k $visited) $pq2)
+))))
 
 (= (chainer $steps $goal) (chainer-v $steps () (hpq-empty) $goal))
 
@@ -219,4 +229,4 @@
 (= (query $steps $kb $stmt)
   (let (cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt))
   (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
-       (pretty (chainer $steps $query)))))
+       (let $res (chainer $steps $query) (pretty (superpose $res))))))

@@ -44,4 +44,3 @@
     (collapse (query 1 kb (: $prf (SwitchGoal) $tv)))
     ((: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.7))))
 
-!(query 1 kb (: $prf (SwitchGoal) $tv))

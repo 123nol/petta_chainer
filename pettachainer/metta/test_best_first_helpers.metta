@@ -53,14 +53,3 @@
                        (cons (qitem 0.8 b goalB) ())))
          (hpq-size $pq))
     1)
-
-;; Rule candidate score derives from compiled rule premises.
-!(test
-    (candidate-from-match
-        (((CPU MpFormula ((STV 1.0 0.62) (STV 1.0 1.0)) $tv) Nil)
-         |- (: (kb MAIN ()) demoPrf (DemoGoal) $tv)))
-    (qitem 0.62
-           (cand (((CPU MpFormula ((STV 1.0 0.62) (STV 1.0 1.0)) $tv) Nil)
-                  |- (: (kb MAIN ()) demoPrf (DemoGoal) $tv))
-                 0.62)
-           (: (kb MAIN ()) demoPrf (DemoGoal) $tv)))
