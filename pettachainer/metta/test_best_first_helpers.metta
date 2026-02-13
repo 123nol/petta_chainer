@@ -53,5 +53,7 @@
         (((CPU MpFormula ((STV 1.0 0.62) (STV 1.0 1.0)) $tv) Nil)
          |- (: (kb MAIN ()) demoPrf (DemoGoal) $tv)))
     (qitem 0.62
-           ((CPU MpFormula ((STV 1.0 0.62) (STV 1.0 1.0)) $tv) Nil)
+           (cand (((CPU MpFormula ((STV 1.0 0.62) (STV 1.0 1.0)) $tv) Nil)
+                  |- (: (kb MAIN ()) demoPrf (DemoGoal) $tv))
+                 0.62)
            (: (kb MAIN ()) demoPrf (DemoGoal) $tv)))

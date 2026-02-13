@@ -30,25 +30,60 @@
        ($other 1.0)
      )))
 
+;; Confidence from a concrete proved premise.
+(= (proof-confidence (: $_kb $_prf $_type $tv)) (tv-confidence $tv))
+(= (proof-confidence (CPU $_fun $_args $res)) (tv-confidence $res))
+(= (proof-confidence $_proof) 1.0)
+
 (= (premises-expected-confidence Nil) 1.0)
 (= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence ($prem $rest))
    (min (premise-expected-confidence $prem) (premises-expected-confidence $rest)))
 
 ;; Priority queue sorted by descending expected confidence.
-(= (pq-insert () $item) (cons $item ()))
-(= (pq-insert (cons (qitem $p $args $goal) $rest) (qitem $np $nargs $ngoal))
+(= (pq-insert-raw () $item) (cons $item ()))
+(= (pq-insert-raw (cons (qitem $p $args $goal) $rest) (qitem $np $nargs $ngoal))
    (if (> $np $p)
        (cons (qitem $np $nargs $ngoal) (cons (qitem $p $args $goal) $rest))
-       (cons (qitem $p $args $goal) (pq-insert $rest (qitem $np $nargs $ngoal)))))
+       (cons (qitem $p $args $goal) (pq-insert-raw $rest (qitem $np $nargs $ngoal)))))
+
+(= (qitem-key (qitem $prio $args $goal))
+   (qkey $goal $prio $args))
+
+(= (pq-contains-key () $key) false)
+(= (pq-contains-key (cons $head $tail) $key)
+   (if (== (qitem-key $head) $key)
+       true
+       (pq-contains-key $tail $key)))
+(= (pq-contains-key ($head $tail) $key)
+   (if (== (qitem-key $head) $key)
+       true
+       (pq-contains-key $tail $key)))
+
+(= (pq-insert $pq $item)
+   (let $key (qitem-key $item)
+        (if (pq-contains-key $pq $key)
+            $pq
+            (pq-insert-raw $pq $item))))
 
 (= (pq-insert-all $pq ()) $pq)
 (= (pq-insert-all $pq (cons $item $tail))
    (pq-insert-all (pq-insert $pq $item) $tail))
 
+(= (is-inversion-proof $prf)
+   (if (is-var $prf)
+       false
+       (if (= $prf ((inverted $_name with $_a $_b $_c $_d) $_ctx))
+           true
+           false)))
+
 ;; Build initial queue from all matching rule applications.
 (= (candidate-from-match ($args |- $goal))
-   (qitem (premises-expected-confidence $args) $args $goal))
+   (let (: $_kb $prf $_type $_tv) $goal
+        (if (is-inversion-proof $prf)
+            (empty)
+            (let $score (premises-expected-confidence $args)
+                 (qitem $score (cand ($args |- $goal) $score) $goal)))))
 
 (= (initial-candidate $goal)
    (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
@@ -58,19 +93,33 @@
    (let $items (collapse (initial-candidate $goal))
         (pq-insert-all () $items)))
 
-;; Try one prioritized rule; on failure continue with remaining queue.
-(= (try-prioritized-rule $steps $visited (qitem $_prio $args $goal) $pq-rest)
-   (let $_ (chain-rec-v $steps $visited $args)
-        (cons $goal (search-rules $steps $visited $pq-rest))))
-(= (try-prioritized-rule $steps $visited $item $pq-rest)
-   (search-rules $steps $visited $pq-rest))
+;; Expand one candidate by proving exactly one next premise.
+(= (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g))
+   (let $proved (chainer-v $steps $visited $prem)
+        (let $prem $proved
+             (let $prem-score (min (proof-confidence $proved) (premise-expected-confidence $proved))
+             (let $new-score (min $score $prem-score)
+                  (qitem $new-score (cand ($rest |- $goal) $new-score) $goal))))))
+(= (expand-candidate $steps $visited (qitem $_prio (cand (Nil |- $_goal) $_score) $_g))
+   (empty))
+(= (expand-candidate $steps $visited (qitem $_prio (cand (() |- $_goal) $_score) $_g))
+   (empty))
 
-;; Best-first over rule applications.
+;; Best-first over partially-applied rule candidates.
 (= (search-rules $steps $visited ()) ())
 (= (search-rules $steps $visited (cons $item $pq-rest))
+   (search-rules-step $steps $visited (cons $item $pq-rest)))
+
+(= (search-rules-step $steps $visited (cons (qitem $_prio (cand (Nil |- $goal) $_score) $_g) $pq-rest))
+   (cons $goal (search-rules $steps $visited $pq-rest)))
+(= (search-rules-step $steps $visited (cons (qitem $_prio (cand (() |- $goal) $_score) $_g) $pq-rest))
+   (cons $goal (search-rules $steps $visited $pq-rest)))
+(= (search-rules-step $steps $visited (cons (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g) $pq-rest))
    (if (<= $steps 0)
        ()
-       (try-prioritized-rule (- $steps 1) $visited $item $pq-rest)))
+       (let $new-items (collapse (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g)))
+            (let $new-pq (pq-insert-all $pq-rest $new-items)
+                 (search-rules (- $steps 1) $visited $new-pq)))))
 
 (= (first-result (cons $head $_tail)) $head)
 (= (first-result ($head $_tail)) $head)
@@ -104,14 +153,13 @@
 
 (= (chainer-v $steps $visited $goal)
    (let $k (goal-key $goal)
-   (if (or (<= $steps 0) (is-member $k $visited))
-       (empty)
-       (let $pq (build-initial-pq $goal)
-            (let $results (search-rules $steps (cons $k $visited) $pq)
-                 (if (== $results ())
-                     (search-rules-dfs-fallback $steps (cons $k $visited) $goal)
-                     (superpose $results))))
-       )))
+      (if (or (<= $steps 0) (is-member $k $visited))
+          (empty)
+          (let $pq (build-initial-pq $goal)
+               (let $results (search-rules $steps (cons $k $visited) $pq)
+                    (if (== $results ())
+                        (search-rules-dfs-fallback $steps (cons $k $visited) $goal)
+                        (superpose $results)))))))
 
 (= (chain-rec-v $steps $visited ($goal $dep))
   (if (== $dep Nil)
@@ -126,7 +174,13 @@
    (if (is-member $head $seen)
        (ordered-unique-acc $tail $seen)
        (cons $head (ordered-unique-acc $tail (cons $head $seen)))))
+(= (ordered-unique-acc ($head $tail) $seen)
+   (if (is-member $head $seen)
+       (ordered-unique-acc $tail $seen)
+       ($head (ordered-unique-acc $tail (cons $head $seen)))))
 (= (ordered-unique $lst) (ordered-unique-acc $lst ()))
+
+
 
 ;;;;;;;;;;;;;;;;;;
 ;; CPU Formulas ;;
@@ -154,7 +208,8 @@
 ;; Truth Functions ;;
 ;;;;;;;;;;;;;;;;;;;;;
 
-(= (MpFormula (STV $abs $abc) (STV $as $ac)) (STV (* $abs $as) $abc))
+(= (MpFormula (STV $abs $abc) (STV $as $ac))
+   (STV (* $abs $as) (min $abc $ac)))
 (= (AndFormula (STV $si $ci) (STV $sa $ca)) (let $sb (min $si $sa)
                                               (let $cb (min $ci $ca) (STV $sb $cb))))
 
@@ -185,5 +240,4 @@
 (= (query $steps $kb $stmt)
   (let (cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt))
   (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
-       (let $results (collapse (pretty (chainer $steps $query)))
-            (superpose (ordered-unique $results))))))
+       (pretty (chainer $steps $query)))))
