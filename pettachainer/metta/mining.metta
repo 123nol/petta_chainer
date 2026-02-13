@@ -35,14 +35,12 @@
           ($conck (cons $pb (generalize-args-key $argsb $shared))))
      (terms $premk $conck)))
 
-(= (assoc-get-var $assoc $key)
-   (case (get_assoc $key $assoc)
-      (($a ($a $assoc))
-       (Empty ($v (put_assoc $key $assoc $v))))) )
-
 (= (rewrite-v-step $expr ($accum $assoc))
    (if (= $expr (V $n))
-       (let ($v $nassoc) (assoc-get-var $assoc $n)
+       (let ($v $nassoc)
+            (case (get_assoc $n $assoc)
+               (($a ($a $assoc))
+                (Empty ($v (put_assoc $n $assoc $v)))))
             ((cons $v $accum) $nassoc))
        (if (is-expr $expr)
            (let ($nacc $nassoc) (foldr-flat rewrite-v-step (() $assoc) $expr) ((cons $nacc $accum) $nassoc))
