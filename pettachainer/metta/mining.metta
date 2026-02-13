@@ -106,9 +106,6 @@
    (let (ab $alpha $beta) (update-directional-by-key $kb $premk $conck $sa $ca $sb $cb)
         (emit-mined-implication $kb $premk $conck $alpha $beta)))
 
-(= (share-any-arg $argsa $argsb)
-   (not (== (shared-objects $argsa $argsb) ())))
-
 (= (mine-predicate-pair $kb $pa $argsa (STV $sa $ca) $pb $argsb (STV $sb $cb))
    (let (terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb)
    (let (terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)
@@ -120,12 +117,12 @@
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
    (if (== $cid $stmtid)
        (empty)
-       (if (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ())
-           (let $_ (add-atom &kb (ind-seen-pair $stmtid $cid))
-                (if (share-any-arg $args $argsb)
-                    (mine-predicate-pair $kb $pa $args $tva $pb $argsb $tvb)
-                    (empty)))
-           (empty)
+        (if (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ())
+            (let $_ (add-atom &kb (ind-seen-pair $stmtid $cid))
+                 (if (not (== (shared-objects $args $argsb) ()))
+                     (mine-predicate-pair $kb $pa $args $tva $pb $argsb $tvb)
+                     (empty)))
+            (empty)
            )))
 
 (= (mine-arg-step (minectx $kb $stmtid $pa $args $tva) $arg)
