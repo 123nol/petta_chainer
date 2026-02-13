@@ -67,23 +67,17 @@
           ($score (min $max-score (proof-confidence $proof))))
      (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
-(= (append-list () $ys) $ys)
-(= (append-list (cons $x $xs) $ys)
-   (cons $x (append-list $xs $ys)))
-
 (= (cont-goal-keys $cont)
    (case $cont
      (
        (() ())
        (Nil ())
-       ((cons (frame $_prem $_rest $goal $_parent-score) $tail)
-        (cons (let (: $_kb $_prf $type $_tv) $goal $type)
-              (cont-goal-keys $tail)))
+       ((cons (frame $_prem $_rest (: $_kb $_prf $type $_tv) $_parent-score) $tail)
+        (cons $type (cont-goal-keys $tail)))
      )))
 
-(= (active-goal-keys $goal $cont)
-   (cons (let (: $_kb $_prf $type $_tv) $goal $type)
-         (cont-goal-keys $cont)))
+(= (active-goal-keys (: $_kb $_prf $type $_tv) $cont)
+   (cons $type (cont-goal-keys $cont)))
 
 
 (= (premise-goal-keys-one $prem)
@@ -101,7 +95,7 @@
        (() ())
        (Nil ())
        (($prem $rest)
-        (append-list (premise-goal-keys-one $prem) (premise-goal-keys $rest)))
+        (append (premise-goal-keys-one $prem) (premise-goal-keys $rest)))
      )))
 
 (= (has-any-member () $_active) false)
@@ -119,7 +113,7 @@
        ((qitem $_prio (cand (Nil |- $proved-goal) $_score (cons $frame $rest-cont)) $_g)
         (state-resume-frame (state $pq $goals) $proved-goal $frame $rest-cont))
        ((qitem $_prio (cand (Nil |- $goal) $_score ()) $_g)
-        (state $pq (append-list $goals (cons $goal ()))))
+        (state $pq (append $goals (cons $goal ()))))
        ((qitem $_prio (cand ($args |- $goal) $_score $cont) $_g)
         (if (has-active-premise? $args $goal $cont)
             (trace! (hpq loop-skip $goal $args) (state $pq $goals))
