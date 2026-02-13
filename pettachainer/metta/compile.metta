@@ -140,7 +140,7 @@
 
 (= (kbctx $kb) (if (is-expr $kb) $kb ($kb MAIN ())))
 
-(= (implication $kb $prf $a $b $itv) ( ((: (kbctx $kb) $prfa $a $atv) (CPU MpFormula ($itv $atv) $btv)) |- ((: (kbctx $kb) ($prf $prfa) $b $btv))))
+(= (implication $kb $prf $a $b $itv) ( ((: ($kb $ctx $vars) $prfa $a $atv) (CPU MpFormula ($itv $atv) $btv)) |- ((: ($kb $ctx $vars) ($prf $prfa) $b $btv))))
 
 (= (map-nested2 $f ()) ())
 (= (map-nested2 $f (cons $x $xs))
@@ -153,13 +153,13 @@
 (= (inverse-implication $kb $prf $a $b $itv)
     (let $a1 (map-nested2 toQuery $a)
     (let $b1 (map-nested2 toQuery $b)
-    (((: (kbctx $kb) $prfa $a1 $atv)
-      (: (kbctx $kb) $prfb $b1 $btv)
+    (((: ($kb $ctx $vars) $prfa $a1 $atv)
+      (: ($kb $ctx $vars) $prfb $b1 $btv)
       (CPU InversionFormula ($atv $btv $itv) $iitv)
-      (: (kbctx $kb) $prfb $b $btv)
+      (: ($kb $ctx $vars) $prfb $b $btv)
       (CPU MpFormula ($iitv $btv) $atv))
      |-
-     ((: (kbctx $kb) ((inverted $prf with $prfxa $prfax $prfxb $prfbx) $prfb) $a $atv))))))
+     ((: ($kb $ctx $vars) ((inverted $prf with $prfxa $prfax $prfxb $prfbx) $prfb) $a $atv))))))
 
 (= (compile_ $kb (@ $stmt (: $prf $Type $tv)))
     (if (is-var $Type)
