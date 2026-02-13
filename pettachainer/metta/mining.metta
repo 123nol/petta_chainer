@@ -41,6 +41,24 @@
    (let $conck (cons $pb (generalize-args-key $argsb $shared))
         (terms $premk $conck)))))
 
+(= (rewrite-v-args ()) ())
+(= (rewrite-v-args (cons $h $t))
+   (cons (rewrite-v-term $h) (rewrite-v-args $t)))
+
+(= (rewrite-v-term $a)
+   (case $a
+     (((V 1) $x1)
+      ((V 2) $x2)
+      ((V 3) $x3)
+      ((V 4) $x4)
+      ((V 5) $x5)
+      ((V 6) $x6)
+      ((V 7) $x7)
+      ((V 8) $x8)
+      ($other (if (is-expr $other)
+                  (cons (car-atom $other) (rewrite-v-args (cdr-atom $other)))
+                  $other)))))
+
 
 
 (= (clear-impl-stats $kb $premk $conck)
@@ -69,8 +87,8 @@
 (= (emit-mined-implication $kb $premk $conck $alpha $beta)
    (let* (($s (impl-strength $alpha $beta))
           ($c (count-to-confidence (+ $alpha $beta)))
-          ($prem $premk)
-          ($conc $conck)
+          ($prem (rewrite-v-term $premk))
+          ($conc (rewrite-v-term $conck))
           ($type (Implication (Premises $prem) (Conclusions $conc)))
           ($stmt (: (mined_implication $premk $conck) $type (STV $s $c)))
           ($_ (clear-mined-implication-rules $kb $premk $conck)))
