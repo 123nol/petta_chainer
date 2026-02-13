@@ -148,25 +148,23 @@
                     (mine-predicate-pair $kb $pa $args $tva $pb $argsb $tvb)
                     (empty))))))
 
-(= (mine-by-arg $kb $stmtid $pa $args $tva $arg)
-   (collapse
-     (match &mining_index
-            (ind-arg-index $kb $arg $cid $pb $argsb $tvb)
-            (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb))))
-
-(= (mine-fact-match-args $kb $stmtid $pa $args $tva ()) (empty))
-(= (mine-fact-match-args $kb $stmtid $pa $args $tva (cons $h $t))
-   (let $_ (mine-by-arg $kb $stmtid $pa $args $tva $h)
-        (mine-fact-match-args $kb $stmtid $pa $args $tva $t)))
+(= (mine-arg-step (minectx $kb $stmtid $pa $args $tva) $arg)
+   (let $_ (collapse
+             (match &mining_index
+                    (ind-arg-index $kb $arg $cid $pb $argsb $tvb)
+                    (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)))
+        (minectx $kb $stmtid $pa $args $tva)))
 
 (= (mine-fact-match $kb $stmtid $pa $args $tva)
-   (let $_ (mine-fact-match-args $kb $stmtid $pa $args $tva $args)
+   (let $_ (foldl-atom $args (minectx $kb $stmtid $pa $args $tva) mine-arg-step)
         (clear-seen-candidates $stmtid)))
 
-(= (index-fact-args $kb $stmtid $pa $args $tv ()) (empty))
-(= (index-fact-args $kb $stmtid $pa $args $tv (cons $h $t))
-   (let $_ (add-atom &mining_index (ind-arg-index $kb $h $stmtid $pa $args $tv))
-        (index-fact-args $kb $stmtid $pa $args $tv $t)))
+(= (index-arg-step (idxctx $kb $stmtid $pa $args $tv) $arg)
+   (let $_ (add-atom &mining_index (ind-arg-index $kb $arg $stmtid $pa $args $tv))
+        (idxctx $kb $stmtid $pa $args $tv)))
+
+(= (index-fact-args $kb $stmtid $pa $args $tv)
+   (foldl-atom $args (idxctx $kb $stmtid $pa $args $tv) index-arg-step))
 
 (= (process-on-add $kb (: $prf $type $tv))
    (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -175,8 +173,8 @@
            (let* (($pa (car-atom $type))
                   ($args (cdr-atom $type)))
                  (superpose ((mine-fact-match $kb $prf $pa $args $tv)
-                             (index-fact-args $kb $prf $pa $args $tv $args))))
-           ())))
+                             (index-fact-args $kb $prf $pa $args $tv))))
+            ())))
 
 (= (compileadd $kb $stmt)
   (let $atoms (mm2compile $kb $stmt)
