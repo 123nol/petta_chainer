@@ -111,19 +111,9 @@
                     (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)))
         (minectx $kb $stmtid $pa $args $tva)))
 
-(= (mine-fact-match $kb $stmtid $pa $args $tva)
-   (let $_ (foldl-atom $args (minectx $kb $stmtid $pa $args $tva) mine-arg-step)
-        (collapse
-          (match &kb
-                 (ind-seen-pair $stmtid $cid)
-                 (remove-atom &kb (ind-seen-pair $stmtid $cid))))))
-
 (= (index-arg-step (idxctx $kb $stmtid $pa $args $tv) $arg)
    (let $_ (add-atom &mining_index (ind-arg-index $kb $arg $stmtid $pa $args $tv))
         (idxctx $kb $stmtid $pa $args $tv)))
-
-(= (index-fact-args $kb $stmtid $pa $args $tv)
-   (foldl-atom $args (idxctx $kb $stmtid $pa $args $tv) index-arg-step))
 
 (= (process-on-add $kb (: $prf $type $tv))
    (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
@@ -131,9 +121,14 @@
        (if (and (not (is-expr $prf)) (is-expr $type))
            (let* (($pa (car-atom $type))
                   ($args (cdr-atom $type)))
-                 (superpose ((mine-fact-match $kb $prf $pa $args $tv)
-                             (index-fact-args $kb $prf $pa $args $tv))))
-            ())))
+                 (superpose
+                   ((let $_ (foldl-atom $args (minectx $kb $prf $pa $args $tv) mine-arg-step)
+                      (collapse
+                        (match &kb
+                               (ind-seen-pair $prf $cid)
+                               (remove-atom &kb (ind-seen-pair $prf $cid)))))
+                    (foldl-atom $args (idxctx $kb $prf $pa $args $tv) index-arg-step))))
+             ())))
 
 (= (compileadd $kb $stmt)
    (let* (($atoms (mm2compile $kb $stmt))
