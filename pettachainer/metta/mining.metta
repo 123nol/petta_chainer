@@ -6,14 +6,6 @@
 !(use-module! assoc)
 !(import_prolog_function (superpose (empty_assoc put_assoc get_assoc)))
 
-(= (count-to-confidence $count)
-   (/ $count (+ $count 800.0)))
-
-(= (impl-strength $alpha $beta)
-   (if (> (+ $alpha $beta) 0.0)
-       (/ $alpha (+ $alpha $beta))
-       0.5))
-
 (= (shared-objects () $argsb) ())
 (= (shared-objects (cons $h $t) $argsb)
    (let $rst (shared-objects $t $argsb)
@@ -81,8 +73,9 @@
 
 (= (emit-mined-implication $kb $premk $conck $alpha $beta)
    (let ($prem $conc) (fst (foldr-flat rewrite-v-step (() (empty_assoc)) ($premk $conck)))
-   (let* (($s (impl-strength $alpha $beta))
-          ($c (count-to-confidence (+ $alpha $beta)))
+   (let* (($sum (+ $alpha $beta))
+          ($s (if (> $sum 0.0) (/ $alpha $sum) 0.5))
+          ($c (/ $sum (+ $sum 800.0)))
           ($type (Implication (Premises $prem) (Conclusions $conc)))
           ($stmt (: (mined_implication $premk $conck) $type (STV $s $c)))
           ($_ (clear-mined-implication-rules $kb $premk $conck)))
