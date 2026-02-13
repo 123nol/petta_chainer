@@ -116,11 +116,6 @@
        True
        (share-any-arg $t $argsb)))
 
-(= (already-seen-candidate $stmtid $cid)
-   (if (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ())
-       False
-       True))
-
 (= (clear-seen-candidates $stmtid)
    (collapse
      (match &kb
@@ -138,12 +133,13 @@
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
    (if (== $cid $stmtid)
        (empty)
-       (if (already-seen-candidate $stmtid $cid)
-           (empty)
+       (if (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ())
            (let $_ (add-atom &kb (ind-seen-pair $stmtid $cid))
                 (if (share-any-arg $args $argsb)
                     (mine-predicate-pair $kb $pa $args $tva $pb $argsb $tvb)
-                    (empty))))))
+                    (empty)))
+           (empty)
+           )))
 
 (= (mine-arg-step (minectx $kb $stmtid $pa $args $tva) $arg)
    (let $_ (collapse
