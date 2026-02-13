@@ -7,9 +7,6 @@
 ;; Chainer Core ;;
 ;;;;;;;;;;;;;;;;;;
 
-;; Normalize variable names out of a goal key so renamed variants are treated as same state.
-(= (goal-key (: $kb $prf $type $tv)) $type)
-
 ;; Confidence helpers.
 (= (tv-confidence $tv)
    (if (= $tv (STV $_s $c))
@@ -51,24 +48,24 @@
 
 ;; Build initial queue from all matching rule applications.
 (= (candidate-from-match* $max-score $cont ($args |- $goal))
-   (let (: $_kb $prf $_type $_tv) $goal
-            (let $score (min $max-score (premises-expected-confidence $args))
-                 (qitem $score (cand ($args |- $goal) $score $cont) $goal))))
+   (let* (((: $_kb $prf $_type $_tv) $goal)
+          ($score (min $max-score (premises-expected-confidence $args))))
+     (qitem $score (cand ($args |- $goal) $score $cont) $goal)))
 
 (= (initial-candidate* $max-score $cont $goal)
    (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
         (candidate-from-match* $max-score $cont ($args |- $goal))))
 
 (= (direct-goal-items $steps $max-score $cont (CPU $fun $args $_res))
-       (let $res (cpu-call $steps $fun $args)
-            (let $proof (CPU $fun $args $res)
-                 (let $score (min $max-score (proof-confidence $proof))
-                      (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))))
+   (let* (($res (cpu-call $steps $fun $args))
+          ($proof (CPU $fun $args $res))
+          ($score (min $max-score (proof-confidence $proof))))
+     (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
 (= (direct-goal-items $steps $max-score $cont $goal)
-   (let $proof (match &kb $goal $goal)
-        (let $score (min $max-score (proof-confidence $proof))
-             (qitem $score (cand (Nil |- $proof) $score $cont) $proof))))
+   (let* (($proof (match &kb $goal $goal))
+          ($score (min $max-score (proof-confidence $proof))))
+     (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
 (= (append-list () $ys) $ys)
 (= (append-list (cons $x $xs) $ys)
@@ -80,11 +77,13 @@
        (() ())
        (Nil ())
        ((cons (frame $_prem $_rest $goal $_parent-score) $tail)
-        (cons (goal-key $goal) (cont-goal-keys $tail)))
+        (cons (let (: $_kb $_prf $type $_tv) $goal $type)
+              (cont-goal-keys $tail)))
      )))
 
 (= (active-goal-keys $goal $cont)
-   (cons (goal-key $goal) (cont-goal-keys $cont)))
+   (cons (let (: $_kb $_prf $type $_tv) $goal $type)
+         (cont-goal-keys $cont)))
 
 
 (= (premise-goal-keys-one $prem)
@@ -134,16 +133,16 @@
    (state-enqueue-items (state-enqueue-item $state $item) $tail))
 
 (= (state-resume-frame $state $proved-goal (frame $prem $rest $goal $parent-score) $cont)
-   (let $prem $proved-goal
-        (let $prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $prem))
-             (let $new-score (min $parent-score $prem-score)
-                  (state-enqueue-item $state (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))))
+   (let* (($prem $proved-goal)
+          ($prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $prem)))
+          ($new-score (min $parent-score $prem-score)))
+     (state-enqueue-item $state (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
-   (let $direct-items (collapse (direct-goal-items $steps $max-score $cont $goal))
-        (let $state1 (state-enqueue-items $state $direct-items)
-             (let $rule-items (collapse (initial-candidate* $max-score $cont $goal))
-                  (state-enqueue-items $state1 $rule-items)))))
+   (let* (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
+          ($state1 (state-enqueue-items $state $direct-items))
+          ($rule-items (collapse (initial-candidate* $max-score $cont $goal))))
+     (state-enqueue-items $state1 $rule-items)))
 
 (= (hpq-insert (hpq $heap) $item)
    (trace! (hpq push $item (heap_size $heap))
@@ -162,16 +161,16 @@
                  ($item (hpq $rest-heap))))))
 
 ;; Best-first over partially-applied rule candidates.
-(= (search-rules $steps $visited (hpq $heap))
+(= (search-rules $steps (hpq $heap))
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
-       (let ($item $pq-rest) (hpq-pop (hpq $heap))
-            (search-rules-step (- $steps 1) $visited $item $pq-rest))))
-
-(= (search-rules-step $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $pq-rest)
-       (let $frame (frame $prem $rest $goal $score)
-            (let (state $new-pq $ready-goals) (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)
-                 (append $ready-goals (search-rules $steps $visited $new-pq)))))
+       (let* ((($item $pq-rest) (hpq-pop (hpq $heap)))
+              ($steps2 (- $steps 1))
+              ((qitem $_prio (cand (($prem $rest) |- $goal) $score $cont) $_g) $item)
+              ($frame (frame $prem $rest $goal $score))
+              ((state $new-pq $ready-goals)
+               (enqueue-goal-state $steps2 (state $pq-rest ()) $score (cons $frame $cont) $prem)))
+         (append $ready-goals (search-rules $steps2 $new-pq)))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
@@ -184,14 +183,9 @@
            (cons $fun $args))
        (reduce (reduce $call))))
 
-(= (chainer-v $steps $visited $pq $goal)
-   (let $k (goal-key $goal)
-       (if (or (<= $steps 0) (is-member $k $visited))
-           (empty)
-           (let (state $pq2 $ready-goals) (enqueue-goal-state $steps (state $pq ()) 1.0 () $goal)
-                (append $ready-goals (search-rules $steps (cons $k $visited) $pq2))))))
-
-(= (chainer $steps $goal) (chainer-v $steps () (hpq (empty_heap)) $goal))
+(= (chainer $steps $goal)
+   (let (state $pq $ready-goals) (enqueue-goal-state $steps (state (hpq (empty_heap)) ()) 1.0 () $goal)
+        (append $ready-goals (search-rules $steps $pq))))
 
 ;;;;;;;;;;;;;;;;;;
 ;; CPU Formulas ;;
@@ -200,15 +194,15 @@
 ;; Runtime fold helper.
 (= (foldall-eval $fun $acc ()) $acc)
 (= (foldall-eval $fun $acc (cons $elem $tail))
-  (let $call (cons $fun (cons $acc (cons $elem ())))
-  (let $nacc (reduce (reduce $call))
-       (foldall-eval $fun $nacc $tail))))
+   (let* (($call (cons $fun (cons $acc (cons $elem ()))))
+          ($nacc (reduce (reduce $call))))
+     (foldall-eval $fun $nacc $tail)))
 
 ;; Execute a precompiled query plan represented as (goal + adds).
 (= (run-compiled-query $steps $compiled-query)
-  (let (cons (goal $query) $adds) $compiled-query
-  (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
-       (chainer $steps $query))))
+   (let* (((cons (goal $query) $adds) $compiled-query)
+          ($_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))))
+     (chainer $steps $query)))
 
 ;; FoldAll runtime uses precompiled query, then extracts fold values via pattern match.
 (= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
@@ -221,11 +215,15 @@
 
 (= (MpFormula (STV $abs $abc) (STV $as $ac))
    (STV (* $abs $as) (min $abc $ac)))
-(= (AndFormula (STV $si $ci) (STV $sa $ca)) (let $sb (min $si $sa)
-                                              (let $cb (min $ci $ca) (STV $sb $cb))))
+(= (AndFormula (STV $si $ci) (STV $sa $ca))
+   (let* (($sb (min $si $sa))
+          ($cb (min $ci $ca)))
+     (STV $sb $cb)))
 
-(= (OrFormula (STV $si $ci) (STV $sa $ca)) (let $sb (min $si $sa)
-                                             (let $cb (max $ci $ca) (STV $sb $cb))))
+(= (OrFormula (STV $si $ci) (STV $sa $ca))
+   (let* (($sb (min $si $sa))
+          ($cb (max $ci $ca)))
+     (STV $sb $cb)))
 
 (= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (let $c (min $ca $cb) (if (> $sa $sb) (STV $sa $c) (STV $sb $c))))
 
@@ -249,6 +247,7 @@
 
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $steps $kb $stmt)
-  (let (cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt))
-  (let $_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))
-       (let $res (chainer $steps $query) (pretty (superpose $res))))))
+  (let* (((cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt)))
+         ($_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
+         ($res (chainer $steps $query)))
+    (pretty (superpose $res))))
