@@ -116,12 +116,6 @@
        True
        (share-any-arg $t $argsb)))
 
-(= (clear-seen-candidates $stmtid)
-   (collapse
-     (match &kb
-            (ind-seen-pair $stmtid $cid)
-            (remove-atom &kb (ind-seen-pair $stmtid $cid)))))
-
 (= (mine-predicate-pair $kb $pa $argsa (STV $sa $ca) $pb $argsb (STV $sb $cb))
    (let (terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb)
    (let (terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)
@@ -150,7 +144,10 @@
 
 (= (mine-fact-match $kb $stmtid $pa $args $tva)
    (let $_ (foldl-atom $args (minectx $kb $stmtid $pa $args $tva) mine-arg-step)
-        (clear-seen-candidates $stmtid)))
+        (collapse
+          (match &kb
+                 (ind-seen-pair $stmtid $cid)
+                 (remove-atom &kb (ind-seen-pair $stmtid $cid))))))
 
 (= (index-arg-step (idxctx $kb $stmtid $pa $args $tv) $arg)
    (let $_ (add-atom &mining_index (ind-arg-index $kb $arg $stmtid $pa $args $tv))
