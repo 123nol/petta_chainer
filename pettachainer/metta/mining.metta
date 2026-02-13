@@ -46,18 +46,6 @@
            (let ($nacc $nassoc) (foldr-flat rewrite-v-step (() $assoc) $expr) ((cons $nacc $accum) $nassoc))
            ((cons $expr $accum) $assoc))))
 
-(= (clear-impl-stats $kb $premk $conck)
-   (collapse
-     (match &kb
-            (ind-impl-stats $kb $premk $conck $olda $oldb)
-            (remove-atom &kb (ind-impl-stats $kb $premk $conck $olda $oldb)))))
-
-(= (current-impl-stats $kb $premk $conck)
-   (let $m (collapse (once (match &kb (ind-impl-stats $kb $premk $conck $olda $oldb) (ab $olda $oldb))))
-        (if (== $m ())
-            (ab 0.0 0.0)
-            (car-atom $m))))
-
 (= (clear-mined-implication-rules $kb $premk $conck)
    (let $_
         (collapse
@@ -83,11 +71,14 @@
    (let* (($w (min $ca $cb))
           ($ainc (* $w (* $sa $sb)))
           ($binc (* $w (* $sa (- 1.0 $sb))))
-          ($cur (current-impl-stats $kb $premk $conck))
+          ($m (collapse (once (match &kb (ind-impl-stats $kb $premk $conck $olda $oldb) (ab $olda $oldb)))) )
+          ($cur (if (== $m ()) (ab 0.0 0.0) (car-atom $m)))
           ((ab $olda $oldb) $cur)
           ($newa (+ $olda $ainc))
           ($newb (+ $oldb $binc))
-          ($_ (clear-impl-stats $kb $premk $conck))
+          ($_ (collapse (match &kb
+                              (ind-impl-stats $kb $premk $conck $olda2 $oldb2)
+                              (remove-atom &kb (ind-impl-stats $kb $premk $conck $olda2 $oldb2)))))
           ($_ (add-atom &kb (ind-impl-stats $kb $premk $conck $newa $newb))))
         (ab $newa $newb)))
 
