@@ -38,14 +38,21 @@
          ((CPU MpFormula ((STV 1.0 0.55) $tv1) $tv2) Nil)))
     0.2)
 
-;; Priority queue ordering: larger score should be first.
+;; Heap queue ordering and dedupe.
 !(test
-    (pq-insert (cons (qitem 0.5 a goalA) ()) (qitem 0.8 b goalB))
-    (cons (qitem 0.8 b goalB) (cons (qitem 0.5 a goalA) ())))
+    (let $pq (hpq-insert-all (hpq-empty)
+                 (cons (qitem 0.5 a goalA)
+                       (cons (qitem 0.8 b goalB) ())))
+         (let ($item $_rest) (hpq-pop $pq)
+              $item))
+    (qitem 0.8 b goalB))
 
 !(test
-    (pq-insert (cons (qitem 0.8 b goalB) ()) (qitem 0.4 c goalC))
-    (cons (qitem 0.8 b goalB) (cons (qitem 0.4 c goalC) ())))
+    (let $pq (hpq-insert-all (hpq-empty)
+                 (cons (qitem 0.8 b goalB)
+                       (cons (qitem 0.8 b goalB) ())))
+         (hpq-size $pq))
+    1)
 
 ;; Rule candidate score derives from compiled rule premises.
 !(test

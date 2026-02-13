@@ -1,4 +1,7 @@
 !(import! &self compile)
+!(import! &self (library lib_import))
+!(use-module! heaps)
+!(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 
 ;;;;;;;;;;;;;;;;;;
 ;; Chainer Core ;;
@@ -40,35 +43,9 @@
 (= (premises-expected-confidence ($prem $rest))
    (min (premise-expected-confidence $prem) (premises-expected-confidence $rest)))
 
-;; Priority queue sorted by descending expected confidence.
-(= (pq-insert-raw () $item) (cons $item ()))
-(= (pq-insert-raw (cons (qitem $p $args $goal) $rest) (qitem $np $nargs $ngoal))
-   (if (> $np $p)
-       (cons (qitem $np $nargs $ngoal) (cons (qitem $p $args $goal) $rest))
-       (cons (qitem $p $args $goal) (pq-insert-raw $rest (qitem $np $nargs $ngoal)))))
-
+;; Priority queue key used for deduplication.
 (= (qitem-key (qitem $prio $args $goal))
    (qkey $goal $prio $args))
-
-(= (pq-contains-key () $key) false)
-(= (pq-contains-key (cons $head $tail) $key)
-   (if (== (qitem-key $head) $key)
-       true
-       (pq-contains-key $tail $key)))
-(= (pq-contains-key ($head $tail) $key)
-   (if (== (qitem-key $head) $key)
-       true
-       (pq-contains-key $tail $key)))
-
-(= (pq-insert $pq $item)
-   (let $key (qitem-key $item)
-        (if (pq-contains-key $pq $key)
-            $pq
-            (pq-insert-raw $pq $item))))
-
-(= (pq-insert-all $pq ()) $pq)
-(= (pq-insert-all $pq (cons $item $tail))
-   (pq-insert-all (pq-insert $pq $item) $tail))
 
 (= (is-inversion-proof $prf)
    (if (is-var $prf)
@@ -91,45 +68,68 @@
 
 (= (build-initial-pq $goal)
    (let $items (collapse (initial-candidate $goal))
-        (pq-insert-all () $items)))
+        (hpq-insert-all (hpq-empty) $items)))
+
+(= (qitem-priority-key (qitem $prio $_args $_goal))
+   (- 0 $prio))
+
+(= (hpq-empty)
+   (hpq (empty_heap) ()))
+
+(= (hpq-size (hpq $heap $_seen))
+   (heap_size $heap))
+
+(= (hpq-insert (hpq $heap $seen) $item)
+   (let $key (qitem-key $item)
+        (if (is-member $key $seen)
+            (hpq $heap $seen)
+            (hpq (add_to_heap $heap (qitem-priority-key $item) $item)
+                 (cons $key $seen)))))
+
+(= (hpq-insert-all $pq ()) $pq)
+(= (hpq-insert-all $pq (cons $item $tail))
+   (hpq-insert-all (hpq-insert $pq $item) $tail))
+
+(= (hpq-pop (hpq $heap $seen))
+   (if (== (heap_size $heap) 0)
+       ()
+       (let $rest-heap (get_from_heap $heap $_priority $item)
+            ($item (hpq $rest-heap $seen)))))
 
 ;; Expand one candidate by proving exactly one next premise.
 (= (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g))
-   (let $proved (chainer-v $steps $visited $prem)
-        (let $prem $proved
-             (let $prem-score (min (proof-confidence $proved) (premise-expected-confidence $proved))
-             (let $new-score (min $score $prem-score)
-                  (qitem $new-score (cand ($rest |- $goal) $new-score) $goal))))))
+   (let $prem (chainer-v $steps $visited $prem)
+        (let $prem-score (min (proof-confidence $prem) (premise-expected-confidence $prem))
+        (let $new-score (min $score $prem-score)
+             (qitem $new-score (cand ($rest |- $goal) $new-score) $goal)))))
 (= (expand-candidate $steps $visited (qitem $_prio (cand (Nil |- $_goal) $_score) $_g))
    (empty))
 (= (expand-candidate $steps $visited (qitem $_prio (cand (() |- $_goal) $_score) $_g))
    (empty))
 
 ;; Best-first over partially-applied rule candidates.
-(= (search-rules $steps $visited ()) ())
-(= (search-rules $steps $visited (cons $item $pq-rest))
-   (search-rules-step $steps $visited (cons $item $pq-rest)))
+(= (search-rules $steps $visited $pq)
+   (if (== (hpq-size $pq) 0)
+       ()
+       (let ($item $pq-rest) (hpq-pop $pq)
+            (search-rules-step $steps $visited $item $pq-rest))))
 
-(= (search-rules-step $steps $visited (cons (qitem $_prio (cand (Nil |- $goal) $_score) $_g) $pq-rest))
-   (cons $goal (search-rules $steps $visited $pq-rest)))
-(= (search-rules-step $steps $visited (cons (qitem $_prio (cand (() |- $goal) $_score) $_g) $pq-rest))
-   (cons $goal (search-rules $steps $visited $pq-rest)))
-(= (search-rules-step $steps $visited (cons (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g) $pq-rest))
+(= (search-rules-step $steps $visited (qitem $_prio (cand (Nil |- $goal) $_score) $_g) $pq-rest)
    (if (<= $steps 0)
        ()
-       (let $new-items (collapse (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g)))
-            (let $new-pq (pq-insert-all $pq-rest $new-items)
-                 (search-rules (- $steps 1) $visited $new-pq)))))
-
-(= (first-result (cons $head $_tail)) $head)
-(= (first-result ($head $_tail)) $head)
-(= (first-result ()) (empty))
-
-;; DFS fallback keeps legacy behavior if best-first cannot complete.
-(= (search-rules-dfs-fallback $steps $visited $goal)
-   (let $_ (match &kb (rules ($args |- $goal)) (rules ($args |- $goal)))
-        (let $args (chain-rec-v $steps $visited $args)
-             $goal)))
+       (cons $goal (search-rules (- $steps 1) $visited $pq-rest))))
+(= (search-rules-step $steps $visited (qitem $_prio (cand (() |- $goal) $_score) $_g) $pq-rest)
+   (if (<= $steps 0)
+       ()
+       (cons $goal (search-rules (- $steps 1) $visited $pq-rest))))
+(= (search-rules-step $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g) $pq-rest)
+   (if (<= $steps 0)
+       ()
+         (let $new-items (collapse (expand-candidate $steps $visited (qitem $_prio (cand (($prem $rest) |- $goal) $score) $_g)))
+             (if (== $new-items ())
+                 (search-rules $steps $visited $pq-rest)
+                 (let $new-pq (hpq-insert-all $pq-rest $new-items)
+                      (search-rules $steps $visited $new-pq))))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
@@ -157,30 +157,9 @@
           (empty)
           (let $pq (build-initial-pq $goal)
                (let $results (search-rules $steps (cons $k $visited) $pq)
-                    (if (== $results ())
-                        (search-rules-dfs-fallback $steps (cons $k $visited) $goal)
-                        (superpose $results)))))))
-
-(= (chain-rec-v $steps $visited ($goal $dep))
-  (if (== $dep Nil)
-    ((chainer-v $steps $visited $goal) Nil)
-    ((chainer-v $steps $visited $goal) (chain-rec-v $steps $visited $dep))))
+                    (superpose $results))))))
 
 (= (chainer $steps $goal) (chainer-v $steps () $goal))
-
-;; Keep first occurrence order while removing duplicate results.
-(= (ordered-unique-acc () $seen) ())
-(= (ordered-unique-acc (cons $head $tail) $seen)
-   (if (is-member $head $seen)
-       (ordered-unique-acc $tail $seen)
-       (cons $head (ordered-unique-acc $tail (cons $head $seen)))))
-(= (ordered-unique-acc ($head $tail) $seen)
-   (if (is-member $head $seen)
-       (ordered-unique-acc $tail $seen)
-       ($head (ordered-unique-acc $tail (cons $head $seen)))))
-(= (ordered-unique $lst) (ordered-unique-acc $lst ()))
-
-
 
 ;;;;;;;;;;;;;;;;;;
 ;; CPU Formulas ;;
