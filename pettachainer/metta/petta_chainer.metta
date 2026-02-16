@@ -14,17 +14,26 @@
        1.0))
 
 ;; Rule-native expected confidence extraction from compiled premises.
+(= (normalize-expected-tv $tv)
+   (case $tv
+     (
+       ((STV $s $c) (STV (if (is-var $s) 1.0 $s)
+                         (if (is-var $c) 1.0 $c)))
+       ($other $ohter)
+     )))
+
+(= (normalize-expected-args ($a $b))
+   ((normalize-expected-tv $a) (normalize-expected-tv $b)))
+
 (= (premise-expected-confidence $prem)
    (case $prem
      (
-       ((CPU MpFormula ((STV $_ms $mc) $_mrhs) $_mout)
-        (if (is-var $mc) 1.0 $mc))
-       ((CPU AndFormula ($aa $ab) $_aout)
-        (min (tv-confidence $aa) (tv-confidence $ab)))
-       ((CPU OrFormula ($oa $ob) $_oout)
-        (max (tv-confidence $oa) (tv-confidence $ob)))
-       ((CPU LikelierThanFormula ($la $lb) $_lout)
-        (min (tv-confidence $la) (tv-confidence $lb)))
+       ((CPU $fun $args $_out)
+        (if (is-member $fun (MpFormula AndFormula OrFormula LikelierThanFormula))
+             (let* (($res (reduce (reduce (cons $fun (normalize-expected-args $args)))))
+                    ($c (tv-confidence $res)))
+               (if (is-var $c) 1.0 $c))
+             1.0))
        ((: $_kb $_prf $_type $tv)
         (tv-confidence $tv))
        ($other 1.0)
@@ -42,27 +51,19 @@
      )))
 
 (= (premises-expected-confidence Nil) 1.0)
-(= (premises-expected-confidence ()) 1.0)
 (= (premises-expected-confidence ($prem $rest))
    (min (premise-expected-confidence $prem) (premises-expected-confidence $rest)))
 
-;; Build initial queue from all matching rule applications.
-(= (candidate-from-match* $max-score $cont ($args |- $goal))
-   (let* (($score (min $max-score (premises-expected-confidence $args))))
-     (qitem $score (cand ($args |- $goal) $score $cont) $goal)))
-
-(= (initial-candidate* $max-score $cont $goal)
+;; Build queue items from rule matches for a goal.
+(= (rule-candidate-items $max-score $cont $goal)
    (match &kb (rules ($args |- $goal))
-      (candidate-from-match* $max-score $cont ($args |- $goal))))
-
-(= (direct-goal-items $steps $max-score $cont (CPU $fun $args $_res))
-   (let* (($res (cpu-call $steps $fun $args))
-          ($proof (CPU $fun $args $res))
-          ($score (min $max-score (proof-confidence $proof))))
-     (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
+      (let* (($score (min $max-score (premises-expected-confidence $args))))
+        (qitem $score (cand ($args |- $goal) $score $cont) $goal))))
 
 (= (direct-goal-items $steps $max-score $cont $goal)
-   (let* (($proof (match &kb $goal $goal))
+   (let* (($proof (if (= $goal (CPU $fun $args $_res))
+                        (CPU $fun $args (cpu-call $steps $fun $args))
+                        (match &kb $goal $goal)))
           ($score (min $max-score (proof-confidence $proof))))
      (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
@@ -134,7 +135,7 @@
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let* (($direct-items (collapse (direct-goal-items $steps $max-score $cont $goal)))
           ($state1 (state-enqueue-items $state $direct-items))
-          ($rule-items (collapse (initial-candidate* $max-score $cont $goal))))
+          ($rule-items (collapse (rule-candidate-items $max-score $cont $goal))))
      (state-enqueue-items $state1 $rule-items)))
 
 (= (hpq-insert (hpq $heap) $item)
@@ -162,8 +163,8 @@
               ($frame (frame $prem $rest $goal $score))
               ((state $new-pq $ready-goals)
                (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
-         (if (== $ready-goals ())
-             (search-rules (- $steps 1) $new-pq)
+         (if (or (== $ready-goals ()) (== $ready-goals Nil))
+             (search-rules $steps $new-pq)
              (append $ready-goals (search-rules (- $steps 1) $new-pq))))))
 
 ;; CPU functions that need the current step budget as first argument.
