@@ -15,12 +15,10 @@
 
 ;; Rule-native expected confidence extraction from compiled premises.
 (= (normalize-expected-tv $tv)
-   (case $tv
-     (
-       ((STV $s $c) (STV (if (is-var $s) 1.0 $s)
-                         (if (is-var $c) 1.0 $c)))
-       ($other $ohter)
-     )))
+   (if (= $tv (STV $s $c))
+       (STV (if (is-var $s) 1.0 $s)
+            (if (is-var $c) 1.0 $c))
+       $tv))
 
 (= (normalize-expected-args ($a $b))
    ((normalize-expected-tv $a) (normalize-expected-tv $b)))
@@ -29,11 +27,11 @@
    (case $prem
      (
        ((CPU $fun $args $_out)
-        (if (is-member $fun (MpFormula AndFormula OrFormula LikelierThanFormula))
-             (let* (($res (reduce (reduce (cons $fun (normalize-expected-args $args)))))
-                    ($c (tv-confidence $res)))
-               (if (is-var $c) 1.0 $c))
-             1.0))
+         (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
+              (let* (($res (reduce (reduce (cons $fun (normalize-expected-args $args)))))
+                     ($c (tv-confidence $res)))
+                (if (is-var $c) 1.0 $c))
+              1.0))
        ((: $_kb $_prf $_type $tv)
         (tv-confidence $tv))
        ($other 1.0)
@@ -80,32 +78,25 @@
    (cons $type (cont-goal-keys $cont)))
 
 
-(= (premise-goal-keys-one $prem)
-   (case $prem
-     (
-       ((: $_kb $_prf $type $_tv)
-        (cons $type ()))
-       ($other
-        ())
-     )))
-
 (= (premise-goal-keys $args)
    (case $args
      (
        (() ())
        (Nil ())
+       (((: $_kb $_prf $type $_tv) $rest)
+        (cons $type (premise-goal-keys $rest)))
        (($prem $rest)
-        (append (premise-goal-keys-one $prem) (premise-goal-keys $rest)))
+        (premise-goal-keys $rest))
      )))
 
-(= (has-any-member () $_active) false)
-(= (has-any-member (cons $k $ks) $active)
-   (if (is-member $k $active)
+(= (list-overlaps? () $_ys) false)
+(= (list-overlaps? (cons $x $xs) $ys)
+   (if (is-member $x $ys)
        true
-       (has-any-member $ks $active)))
+       (list-overlaps? $xs $ys)))
 
 (= (has-active-premise? $args $goal $cont)
-   (has-any-member (premise-goal-keys $args) (active-goal-keys $goal $cont)))
+   (list-overlaps? (premise-goal-keys $args) (active-goal-keys $goal $cont)))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
@@ -138,14 +129,10 @@
           ($rule-items (collapse (rule-candidate-items $max-score $cont $goal))))
      (state-enqueue-items $state1 $rule-items)))
 
-(= (hpq-insert (hpq $heap) $item)
-   (trace! (hpq push $item (heap_size $heap))
-        (let (qitem $prio $_args $_goal) $item
-             (hpq (add_to_heap $heap (- 0 $prio) $item)))))
-
-(= (hpq-insert-all $pq ()) $pq)
-(= (hpq-insert-all $pq (cons $item $tail))
-   (hpq-insert-all (hpq-insert $pq $item) $tail))
+(= (hpq-insert (hpq $heap) (qitem $prio $args $goal))
+   (let $item (qitem $prio $args $goal)
+        (trace! (hpq push $item (heap_size $heap))
+             (hpq (add_to_heap $heap (- 0 $prio) $item)))) )
 
 (= (hpq-pop (hpq $heap))
    (if (== (heap_size $heap) 0)
@@ -193,10 +180,16 @@
           ($nacc (reduce (reduce $call))))
      (foldall-eval $fun $nacc $tail)))
 
+(= (inject-compiled-adds $adds)
+   (if (= $adds ())
+       $_
+       (let $sadds (superpose $adds)
+            (add-atom &kb $sadds))))
+
 ;; Execute a precompiled query plan represented as (goal + adds).
 (= (run-compiled-query $steps $compiled-query)
    (let* (((cons (goal $query) $adds) $compiled-query)
-          ($_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds)))))
+          ($_ (inject-compiled-adds $adds)))
      (chainer $steps $query)))
 
 ;; FoldAll runtime uses precompiled query, then extracts fold values via pattern match.
@@ -210,6 +203,7 @@
 
 (= (MpFormula (STV $abs $abc) (STV $as $ac))
    (STV (* $abs $as) (min $abc $ac)))
+
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (let* (($sb (min $si $sa))
           ($cb (min $ci $ca)))
@@ -220,7 +214,11 @@
           ($cb (max $ci $ca)))
      (STV $sb $cb)))
 
-(= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb)) (let $c (min $ca $cb) (if (> $sa $sb) (STV $sa $c) (STV $sb $c))))
+(= (LikelierThanFormula (STV $sa $ca) (STV $sb $cb))
+   (let* (($c (min $ca $cb)))
+     (if (> $sa $sb)
+         (STV $sa $c)
+         (STV $sb $c))))
 
 
 (= (AndProjection (STV $s $c)) (STV $s $c))
@@ -243,6 +241,6 @@
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $steps $kb $stmt)
   (let* (((cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt)))
-         ($_ (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
+         ($_ (inject-compiled-adds $adds))
          ($res (chainer $steps $query)))
     (pretty (superpose $res))))

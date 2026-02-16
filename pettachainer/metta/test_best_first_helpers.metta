@@ -11,19 +11,19 @@
 
 ;; Premise confidence extraction from compiled CPU truth formulas.
 !(test
-    (premise-expected-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) (STV 0.8 0.6)))
+    (premise-expected-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) $out))
     0.6)
 
 !(test
-    (premise-expected-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) (STV 0.8 0.4)))
+    (premise-expected-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
     0.4)
 
 !(test
-    (premise-expected-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) (STV 0.9 0.7)))
+    (premise-expected-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
     0.7)
 
 !(test
-    (premise-expected-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) (STV 0.9 0.4)))
+    (premise-expected-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
     0.4)
 
 
@@ -40,17 +40,15 @@
 
 ;; Heap queue ordering and duplicate retention.
 !(test
-    (let $pq (hpq-insert-all (hpq (empty_heap))
-                 (cons (qitem 0.5 a goalA)
-                       (cons (qitem 0.8 b goalB) ())))
+    (let $pq (hpq-insert (hpq-insert (hpq (empty_heap)) (qitem 0.5 a goalA))
+                         (qitem 0.8 b goalB))
          (let ($item $_rest) (hpq-pop $pq)
               $item))
     (qitem 0.8 b goalB))
 
 !(test
-    (let $pq (hpq-insert-all (hpq (empty_heap))
-                 (cons (qitem 0.8 b goalB)
-                       (cons (qitem 0.8 b goalB) ())))
+    (let $pq (hpq-insert (hpq-insert (hpq (empty_heap)) (qitem 0.8 b goalB))
+                         (qitem 0.8 b goalB))
          (let (hpq $heap) $pq
               (heap_size $heap)))
     2)
