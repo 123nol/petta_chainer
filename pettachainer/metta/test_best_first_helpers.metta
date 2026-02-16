@@ -11,24 +11,24 @@
 
 ;; Premise confidence extraction from compiled CPU truth formulas.
 !(test
-    (premise-expected-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) $out))
+    (term-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) $out))
     0.6)
 
 !(test
-    (premise-expected-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
+    (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
     0.4)
 
 !(test
-    (premise-expected-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
+    (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
     0.7)
 
 !(test
-    (premise-expected-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
+    (term-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out))
     0.4)
 
 
 !(test
-    (premise-expected-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $res))
+    (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $res))
     0.4)
 
 ;; Nested premise list confidence (min over expected premise confidences).
@@ -66,14 +66,12 @@
 !(test
     (has-active-premise?
         ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)
-        (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0))
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 !(test
     (has-active-premise?
         ((: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) Nil)
-        (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0))
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     false)
 

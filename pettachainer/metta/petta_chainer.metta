@@ -17,40 +17,35 @@
 (= (normalize-expected-tv $tv)
    (if (= $tv (STV $s $c))
        (STV (if (is-var $s) 1.0 $s)
-            (if (is-var $c) 1.0 $c))
+             (if (is-var $c) 1.0 $c))
        $tv))
 
 (= (normalize-expected-args ($a $b))
    ((normalize-expected-tv $a) (normalize-expected-tv $b)))
 
-(= (premise-expected-confidence $prem)
-   (case $prem
-     (
-       ((CPU $fun $args $_out)
-         (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
-              (let* (($res (reduce (reduce (cons $fun (normalize-expected-args $args)))))
-                     ($c (tv-confidence $res)))
-                (if (is-var $c) 1.0 $c))
-              1.0))
-       ((: $_kb $_prf $_type $tv)
-        (tv-confidence $tv))
-       ($other 1.0)
-     )))
+(= (cpu-expected-confidence $fun $args)
+   (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
+       (let* (($res (reduce (reduce (cons $fun (normalize-expected-args $args)))))
+              ($c (tv-confidence $res)))
+         (if (is-var $c) 1.0 $c))
+       1.0))
 
-;; Confidence from a concrete proved premise (deterministic).
-(= (proof-confidence $proof)
-   (case $proof
+;; Unified confidence extraction for both expected and concrete terms.
+(= (term-confidence $term)
+   (case $term
      (
-       ((: $_kb $_prf $_type $tv)
-        (tv-confidence $tv))
-       ((CPU $_fun $_args $res)
-        (tv-confidence $res))
-       ($other 1.0)
-     )))
+        ((CPU $fun $args $res)
+         (if (is-var $res)
+             (cpu-expected-confidence $fun $args)
+             (tv-confidence $res)))
+        ((: $_kb $_prf $_type $tv)
+         (tv-confidence $tv))
+        ($other 1.0)
+      )))
 
 (= (premises-expected-confidence Nil) 1.0)
 (= (premises-expected-confidence ($prem $rest))
-   (min (premise-expected-confidence $prem) (premises-expected-confidence $rest)))
+   (min (term-confidence $prem) (premises-expected-confidence $rest)))
 
 ;; Build queue items from rule matches for a goal.
 (= (rule-candidate-items $max-score $cont $goal)
@@ -60,23 +55,15 @@
 
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
-                        (CPU $fun $args (cpu-call $steps $fun $args))
-                        (match &kb $goal $goal)))
-          ($score (min $max-score (proof-confidence $proof))))
+                         (CPU $fun $args (cpu-call $steps $fun $args))
+                         (match &kb $goal $goal)))
+          ($score (min $max-score (term-confidence $proof))))
      (qitem $score (cand (Nil |- $proof) $score $cont) $proof)))
 
 (= (cont-goal-keys $cont)
-   (case $cont
-     (
-       (() ())
-       (Nil ())
-       ((cons (frame $_prem $_rest (: $_kb $_prf $type $_tv) $_parent-score) $tail)
-        (cons $type (cont-goal-keys $tail)))
-     )))
-
-(= (active-goal-keys (: $_kb $_prf $type $_tv) $cont)
-   (cons $type (cont-goal-keys $cont)))
-
+   (if (= $cont (cons (frame $_prem $_rest (: $_kb $_prf $type $_tv) $_parent-score) $tail))
+      (cons $type (cont-goal-keys $tail))
+      ()))
 
 (= (premise-goal-keys $args)
    (case $args
@@ -95,8 +82,8 @@
        true
        (list-overlaps? $xs $ys)))
 
-(= (has-active-premise? $args $goal $cont)
-   (list-overlaps? (premise-goal-keys $args) (active-goal-keys $goal $cont)))
+(= (has-active-premise? $args $cont)
+   (list-overlaps? (premise-goal-keys $args) (cont-goal-keys $cont)))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
@@ -106,7 +93,7 @@
        ((qitem $_prio (cand (Nil |- $goal) $_score ()) $_g)
         (state $pq (append $goals (cons $goal ()))))
        ((qitem $prio (cand ($args |- $goal) $_score $cont) $_g)
-        (if (has-active-premise? $args $goal $cont)
+        (if (has-active-premise? $args $cont)
             (state $pq $goals)
             (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
        ($other
@@ -114,8 +101,7 @@
      )))
 
 (= (state-resume-frame $state $proved-goal (frame $proved-goal $rest $goal $parent-score) $cont)
-   (let* (($prem-score (min (proof-confidence $proved-goal) (premise-expected-confidence $proved-goal)))
-          ($new-score (min $parent-score $prem-score)))
+   (let $new-score (min $parent-score (term-confidence $proved-goal))
      (state-enqueue-item $state (qitem $new-score (cand ($rest |- $goal) $new-score $cont) $goal))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
