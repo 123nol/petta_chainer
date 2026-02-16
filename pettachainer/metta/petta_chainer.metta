@@ -50,8 +50,8 @@
 ;; Build queue items from rule matches for a goal.
 (= (rule-candidate-items $max-score $cont $goal)
    (match &kb (rules ($args |- $goal))
-      (let* (($score (min $max-score (premises-expected-confidence $args))))
-        (qitem $score (cand ($args |- $goal) $score $cont) $goal))))
+      (let $score (min $max-score (premises-expected-confidence $args))
+           (qitem $score (cand ($args |- $goal) $score $cont) $goal))))
 
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
@@ -69,9 +69,8 @@
 
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
-          ($cont-keys (map-flat (|-> ((frame $_p $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont))
-          ($overlap (/=a\ $prem-keys $cont-keys)))
-      (not (== $overlap ()))))
+          ($cont-keys (map-flat (|-> ((frame $_p $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
+      (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
@@ -79,7 +78,7 @@
        ((qitem $_prio (cand (Nil |- $proved-goal) $_score (cons $frame $rest-cont)) $_g)
         (state-resume-frame (state $pq $goals) $proved-goal $frame $rest-cont))
        ((qitem $_prio (cand (Nil |- $goal) $_score ()) $_g)
-        (state $pq (append $goals (cons $goal ()))))
+        (state $pq (cons $goal $goals)))
        ((qitem $prio (cand ($args |- $goal) $_score $cont) $_g)
         (if (has-active-premise? $args $cont)
             (state $pq $goals)

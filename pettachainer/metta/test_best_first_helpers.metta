@@ -75,6 +75,27 @@
         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     false)
 
+;; Alpha-equivalent goals should count as active overlap.
+!(test
+    (has-active-premise?
+        ((: (kb MAIN ()) pPrem (LoopGoal $x) (STV 1.0 1.0)) Nil)
+        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
+    true)
+
+;; Non-goal premises are ignored while typed goals are extracted.
+!(test
+    (premise-goal-keys
+        ((CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
+         ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil)))
+    ((LoopGoal)))
+
+!(test
+    (has-active-premise?
+        ((CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
+         ((: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) Nil))
+        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+    true)
+
 !(test
     (let (state $pq $goals)
          (state-enqueue-item
