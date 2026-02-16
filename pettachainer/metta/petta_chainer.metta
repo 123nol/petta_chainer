@@ -72,14 +72,14 @@
 
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
-          ($cont-keys (map-flat (|-> ((frame $_p $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
-      (not (== (/=a\ $prem-keys $cont-keys) ()))))
+          ($cont-keys (map-flat (|-> ((resume $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
+       (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 (= (state-enqueue-item (state $pq $goals) $item)
    (case $item
      (
-       ((qitem $_prio (cand (() |- $proved-goal) $_score (cons $frame $rest-cont)) $_g)
-        (state-resume-frame (state $pq $goals) $proved-goal $frame $rest-cont))
+       ((qitem $_prio (cand (() |- $proved-goal) $_score (cons $resume $rest-cont)) $_g)
+        (state-resume-cont (state $pq $goals) $proved-goal $resume $rest-cont))
        ((qitem $_prio (cand (() |- $goal) $_score ()) $_g)
         (state $pq (cons $goal $goals)))
        ((qitem $prio (cand ($args |- $goal) $_score $cont) $_g)
@@ -90,7 +90,7 @@
         (state $pq $goals))
      )))
 
-(= (state-resume-frame $state $proved-goal (frame $proved-goal $rest $goal $parent-score) $cont)
+(= (state-resume-cont $state $proved-goal (resume $rest $goal $parent-score) $cont)
    (let $new-score (min $parent-score (term-confidence $proved-goal))
      (state-enqueue-item $state (candidate-item $new-score $rest $goal $cont))))
 
@@ -104,9 +104,9 @@
        ()
        (let* (($pq-rest (get_from_heap $heap $_priority $item))
                ((qitem $_prio (cand ((cons $prem $rest) |- $goal) $score $cont) $_g) $item)
-               ($frame (frame $prem $rest $goal $score))
+               ($resume (resume $rest $goal $score))
                ((state $new-pq $ready-goals)
-                (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $frame $cont) $prem)))
+                (enqueue-goal-state $steps (state $pq-rest ()) $score (cons $resume $cont) $prem)))
               (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
 
 ;; CPU functions that need the current step budget as first argument.

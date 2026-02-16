@@ -58,7 +58,7 @@
          (state-enqueue-item (state (empty_heap) ())
             (qitem 0.9
                    (cand (() |- provedPrem) 0.9
-                         (cons (frame $prem () resumedGoal 0.6) ()))
+                         (cons (resume () resumedGoal 0.6) ()))
                    ignoredGoal))
          (cons (heap_size $pq) $goals))
     (cons 0 (resumedGoal)))
@@ -66,20 +66,20 @@
 !(test
     (has-active-premise?
         (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
-        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 !(test
     (has-active-premise?
         (cons (: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) ())
-        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     false)
 
 ;; Alpha-equivalent goals should count as active overlap.
 !(test
     (has-active-premise?
         (cons (: (kb MAIN ()) pPrem (LoopGoal $x) (STV 1.0 1.0)) ())
-        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 ;; Non-goal premises are ignored while typed goals are extracted.
@@ -93,7 +93,7 @@
     (has-active-premise?
         (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
               (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ()))
-        (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+        (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
     true)
 
 !(test
@@ -104,7 +104,7 @@
                    (cand ((cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
                           |- (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
                          0.9
-                         (cons (frame premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+                         (cons (resume restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
                    ignoredGoal))
          (heap_size $pq))
     0)
