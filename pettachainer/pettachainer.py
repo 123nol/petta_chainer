@@ -46,7 +46,10 @@ class PeTTaChainer:
     def add_atom(self, atom: str) -> str:
         return self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
 
-    def query(self, atom: str, steps: int = 10, timeout_sec: Optional[float] = 10) -> List[str]:
+    def print_kb(self) -> str:
+        return self.handler.process_metta_string(f"!(match &kb $a $a)")
+
+    def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         if timeout_sec is None or timeout_sec <= 0:
             return self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
 
