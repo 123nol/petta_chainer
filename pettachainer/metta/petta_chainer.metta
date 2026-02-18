@@ -1,10 +1,26 @@
 !(import! &self compile)
-!(import! &self (library lib_import))
+!(import! &self mining)
 !(use-module! heaps)
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 !(import! &self chainer_utils)
 !(bind! &resume_cache (new-space))
 !(bind! &goal_cache (new-space))
+
+;;;;;;;;;
+;; Nat ;;
+;;;;;;;;;
+
+;; Define Nat
+(: Nat Type)
+(: Z Nat)
+(: S (-> Nat Nat))
+
+;; Define cast functions between Nat and Number
+(: fromNumber (-> Number Nat))
+(= (fromNumber $n) (if (<= $n 0) Z (S (fromNumber (- $n 1)))))
+(: fromNat (-> Nat Number))
+(= (fromNat Z) 0)
+(= (fromNat (S $k)) (+ 1 (fromNat $k)))
 
 ;;;;;;;;;;;;;;;;;;
 ;; Chainer Core ;;
@@ -163,8 +179,6 @@
 ;; API   ;;
 ;;;;;;;;;;;
 
-(= (compileadd $kb $stmt)
-  (let $atoms (mm2compile $kb $stmt) (add-atom &kb $atoms)))
 
 ;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $steps $kb $stmt)
