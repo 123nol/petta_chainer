@@ -16,14 +16,18 @@
 ;; Rule-native expected confidence extraction from compiled premises.
 (= (normalize-expected-tv $tv)
    (if (is-var $tv)
-       $tv
+       (STV 1.0 1.0)
        (if (= $tv (STV $s $c))
            (STV (or-1.0 $s)
                 (or-1.0 $c))
            $tv)))
 
 (= (cpu-expected-confidence $fun $args)
-   1.0)
+   (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
+       (let* ((($a $b) $args)
+              ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
+         (tv-confidence $res))
+       1.0))
 
 ;; Unified confidence extraction for both expected and concrete terms.
 (= (term-confidence $term)

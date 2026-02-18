@@ -20,6 +20,7 @@
 !(compileadd kb (: cntKidInRule
     (Implication
         (Premises
+            (Room $room)
             (FoldAllValue (In $room $kid) $tvin (NatDist ((0 1.0))) NatDistAddBernoulliFromSTV -> $dist))
         (Conclusions
             (CntKidIn $room)))
@@ -28,6 +29,7 @@
 !(compileadd kb (: playTogetherRule
     (Implication
         (Premises
+            (Room $room)
             (GreaterThan (CntKidIn $room) 1))
         (Conclusions
             (PlayTogetherIn $room)))
