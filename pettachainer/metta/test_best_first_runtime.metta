@@ -25,7 +25,7 @@
     (STV 1.0 0.7)))
 
 !(test
-    (let (: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.7))
+    (let (: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7096774193548386))
          (superpose (collapse (query 30 kb (: $prf (SwitchGoal) $tv))))
          true)
     true)
@@ -34,7 +34,7 @@
     (let (: (ruleHighThenDrop (conjunction weakFact baseFact)) (SwitchGoal) (STV 1.0 0.1))
          (superpose (collapse (query 30 kb (: $prf (SwitchGoal) $tv))))
          true)
-    true)
+    ())
 
 !(test
     (collapse (query 0 kb (: $prf (SwitchGoal) $tv)))
@@ -46,5 +46,4 @@
 
 !(test
     (collapse (query 7 kb (: $prf (SwitchGoal) $tv)))
-    ((: (ruleStable baseFact) (SwitchGoal) (STV 1.0 0.7)) (: (ruleHighThenDrop (conjunction weakFact baseFact)) (SwitchGoal) (STV 1.0 0.1))))
-
+    ((: (merge/revision (ruleStable baseFact) (ruleHighThenDrop (conjunction weakFact baseFact))) (SwitchGoal) (STV 1.0 0.7096774193548386))))

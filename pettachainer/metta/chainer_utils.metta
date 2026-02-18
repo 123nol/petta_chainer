@@ -1,0 +1,152 @@
+;;;;;;;;;;;;;;;;;;;;;
+;; Chainer Helpers ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+;; Confidence helpers.
+(= (or-1.0 $x)
+   (if (is-var $x) 1.0 $x))
+
+(= (tv-confidence $tv)
+   (if (= $tv (STV $_s $c))
+       (or-1.0 $c)
+       1.0))
+
+;; Rule-native expected confidence extraction from compiled premises.
+(= (normalize-expected-tv $tv)
+   (if (= $tv (STV $s $c))
+       (STV (or-1.0 $s)
+            (or-1.0 $c))
+       $tv))
+
+(= (cpu-expected-confidence $fun $args)
+   (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
+       (let* ((($a $b) $args)
+              ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
+         (tv-confidence $res))
+       1.0))
+
+;; Unified confidence extraction for both expected and concrete terms.
+(= (term-confidence $term)
+   (case $term
+     (
+        ((CPU $fun $args $res)
+         (if (is-var $res)
+             (cpu-expected-confidence $fun $args)
+             (tv-confidence $res)))
+        ((: $_kb $_prf $_type $tv)
+         (tv-confidence $tv))
+        ($other 1.0)
+      )))
+
+(= (premises-expected-confidence ()) 1.0)
+(= (premises-expected-confidence (cons $prem $rest))
+   (min (term-confidence $prem) (premises-expected-confidence $rest)))
+
+;; Goal typing and alpha-equivalence helpers.
+(= (goal-type-key $goal)
+   (if (proof-atom? $goal)
+       (let (: $_kb $_prf $type $_tv) $goal $type)
+       $goal))
+
+(= (same-alpha-type? $a $b)
+   (=alpha (goal-type-key $a) (goal-type-key $b)))
+
+;; Revision helpers for truth-value merging.
+(= (K) 800)
+
+(= (confidence-to-count $conf)
+   (/ (* $conf (K))
+      (- 1 (min-atom ($conf 0.9999)))))
+
+(= (count-to-confidence $count)
+   (/ $count (+ $count (K))))
+
+(= (mean-update $m1 $m2 $c1 $c2)
+   (/ (+ (* $m1 $c1) (* $m2 $c2))
+      (+ $c1 $c2)))
+
+(= (mergetvs (STV $m1 $conf1) (STV $m2 $conf2))
+   (let* (($count1 (confidence-to-count $conf1))
+          ($count2 (confidence-to-count $conf2))
+          ($m (mean-update $m1 $m2 $count1 $count2))
+          ($c (+ $count1 $count2))
+          ($conf (count-to-confidence $c)))
+     (STV $m $conf)))
+
+;; Revision adapter for merging two proof atoms with alpha-equivalent types.
+(= (RevisionMergeProof (: $kb $prf1 $type1 $tv1) (: $_kb2 $prf2 $_type2 $tv2))
+   (: $kb (merge/revision $prf1 $prf2) $type1 (mergetvs $tv1 $tv2)))
+
+(= (proof-atom? $term)
+   (if (= $term (: $_kb $_prf $_type $_tv))
+       true
+       false))
+
+(= (merge-proof-atoms $proof-a $proof-b)
+   (if (and (proof-atom? $proof-a) (proof-atom? $proof-b))
+       (if (>= (term-confidence $proof-a) (term-confidence $proof-b))
+           (RevisionMergeProof $proof-a $proof-b)
+           (RevisionMergeProof $proof-b $proof-a))
+       $proof-a))
+
+;; Global goal cache (space-backed): unique by alpha-equivalent type.
+(= (goal-cache-upsert $gcache $goal)
+   (let* (($hits (collapse
+                   (match $gcache (gmerge $old-goal)
+                     (if (same-alpha-type? $old-goal $goal)
+                         $old-goal
+                         (empty)))))
+          ($_ (fold-flat
+                (|-> ($acc $old-goal)
+                  (progn
+                    (remove-atom $gcache (gmerge $old-goal))
+                    $acc))
+                ()
+                $hits))
+          ($merged-goal (fold-flat merge-proof-atoms $goal $hits))
+          ($_ (add-atom $gcache (gmerge $merged-goal))))
+     $merged-goal))
+
+;; Build queue items from rule matches for a goal.
+(= (candidate-item $score $args $goal $cont)
+   (qitem $score (cand ($args |- $goal) $cont)))
+
+(= (heap-drop-resume-cand $heap $rid $proof)
+   (if (== (heap_size $heap) 0)
+       (empty_heap)
+       (let* (($rest (get_from_heap $heap $priority (qitem $score $payload)))
+              ($nrest (heap-drop-resume-cand $rest $rid $proof))
+              ($drop? (case $payload
+                        (
+                          ((resume-cand $rid $rtype $_cand) (same-alpha-type? $rtype $proof))
+                          ($_p false)
+                        ))))
+         (if $drop?
+             $nrest
+             (add_to_heap $nrest $priority (qitem $score $payload))))))
+
+;; Resume cache (space-backed): unique by (rid + alpha-equivalent type).
+(= (resume-cache-upsert $rcache $rid $proof)
+   (let* (($hits (collapse
+                   (match $rcache (rmerge $rid $old-proof)
+                     (if (same-alpha-type? $old-proof $proof)
+                         $old-proof
+                         (empty)))))
+          ($_ (fold-flat
+                (|-> ($acc $old-proof)
+                  (progn
+                    (remove-atom $rcache (rmerge $rid $old-proof))
+                    $acc))
+                ()
+                $hits))
+          ($merged-proof (fold-flat merge-proof-atoms $proof $hits))
+          ($_ (add-atom $rcache (rmerge $rid $merged-proof))))
+     $merged-proof))
+
+(= (resume-merge-enqueue (state $pq $rcache $gcache) $rid $proved-goal $rest $goal $parent-score $rest-cont)
+   (let* (($merged-proof (resume-cache-upsert $rcache $rid $proved-goal))
+          ($new-score (min $parent-score (term-confidence $merged-proof)))
+          ($clean-pq (heap-drop-resume-cand $pq $rid $proved-goal)))
+     (state-enqueue-item
+       (state $clean-pq $rcache $gcache)
+       (qitem $new-score (resume-cand $rid (goal-type-key $merged-proof) (cand ($rest |- $goal) $rest-cont))))))

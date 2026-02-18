@@ -2,62 +2,20 @@
 !(import! &self (library lib_import))
 !(use-module! heaps)
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
-
-;;;;;;;;;;;;;;;;;;;;;
-;; Chainer Helpers ;;
-;;;;;;;;;;;;;;;;;;;;;
-
-;; Confidence helpers.
-(= (or-1.0 $x)
-   (if (is-var $x) 1.0 $x))
-
-(= (tv-confidence $tv)
-   (if (= $tv (STV $_s $c))
-       (or-1.0 $c)
-       1.0))
-
-;; Rule-native expected confidence extraction from compiled premises.
-(= (normalize-expected-tv $tv)
-   (if (= $tv (STV $s $c))
-       (STV (or-1.0 $s)
-            (or-1.0 $c))
-       $tv))
-
-(= (cpu-expected-confidence $fun $args)
-   (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
-       (let* ((($a $b) $args)
-              ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
-         (tv-confidence $res))
-       1.0))
-
-;; Unified confidence extraction for both expected and concrete terms.
-(= (term-confidence $term)
-   (case $term
-     (
-        ((CPU $fun $args $res)
-         (if (is-var $res)
-             (cpu-expected-confidence $fun $args)
-             (tv-confidence $res)))
-        ((: $_kb $_prf $_type $tv)
-         (tv-confidence $tv))
-        ($other 1.0)
-      )))
-
-(= (premises-expected-confidence ()) 1.0)
-(= (premises-expected-confidence (cons $prem $rest))
-   (min (term-confidence $prem) (premises-expected-confidence $rest)))
-
-;; Build queue items from rule matches for a goal.
-(= (candidate-item $score $args $goal $cont)
-   (qitem $score (cand ($args |- $goal) $cont)))
+!(import! &self chainer_utils)
+!(bind! &resume_cache (new-space))
+!(bind! &goal_cache (new-space))
 
 ;;;;;;;;;;;;;;;;;;
 ;; Chainer Core ;;
 ;;;;;;;;;;;;;;;;;;
 
 (= (chainer $steps $goal)
-   (let (state $pq $ready-goals) (enqueue-goal-state $steps (state (empty_heap) ()) 1.0 () $goal)
-        (append $ready-goals (search-rules $steps $pq))))
+   (let* (($_rclear (remove-all-atoms &resume_cache))
+          ($_gclear (remove-all-atoms &goal_cache))
+          ((state $pq $_rcache $_gcache) (enqueue-goal-state $steps (state (empty_heap) &resume_cache &goal_cache) 1.0 () $goal))
+          ($_ (search-rules $steps $pq &resume_cache &goal_cache)))
+     (collapse (match &goal_cache (gmerge $result-goal) $result-goal))))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let $state1 (fold-flat state-enqueue-item $state (collapse (direct-goal-items $steps $max-score $cont $goal)))
@@ -70,47 +28,50 @@
 
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let* (($proof (if (= $goal (CPU $fun $args $_res))
-                          (CPU $fun $args (cpu-call $steps $fun $args))
-                          (match &kb $goal $goal)))
+                           (CPU $fun $args (cpu-call $steps $fun $args))
+                           (match &kb $goal $goal)))
           ($score (min $max-score (term-confidence $proof))))
      (candidate-item $score () $proof $cont)))
 
 ;; Best-first over partially-applied rule candidates.
-(= (search-rules $steps $heap)
+(= (search-rules $steps $heap $rcache $gcache)
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
-       (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score (cand ((cons $prem $rest) |- $goal) $cont))))
-              ((state $new-pq $ready-goals) (enqueue-goal-state $steps (state $pq-rest ()) $score (cons (resume $rest $goal $score) $cont) $prem))
-             )
-             (append $ready-goals (search-rules (- $steps 1) $new-pq)))))
+       (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
+              ($cand-payload (case $payload
+                                 (
+                                   ((resume-cand $_rid $_type $cand) $cand)
+                                   ($cand $cand)
+              )))
+              ((cand ((cons $prem $rest) |- $goal) $cont) $cand-payload)
+              ($rid (nextctx))
+              ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rest $goal $score) $cont) $prem))
+              )
+             (search-rules (- $steps 1) $new-pq $rcache $gcache))))
 
-(= (state-enqueue-item (state $pq $goals) (qitem $prio (cand ($args |- $goal) $cont)))
-   (case ($args $cont)
-     (
-       ((() ())
-        (state $pq (cons $goal $goals)))
-       ((() (cons (resume $rest $goal $parent-score) $rest-cont))
-        (let $new-score (min $parent-score (term-confidence $proved-goal))
-          (state-enqueue-item (state $pq $goals) (candidate-item $new-score $rest $goal $rest-cont))))
-       (($args $cont)
-        (if (has-active-premise? $args $cont)
-            (state $pq $goals)
-            (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
-     )))
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (cand (() |- $item-goal) ())))
+   (let $_ (goal-cache-upsert $gcache $item-goal)
+        (state $pq $rcache $gcache)))
 
-(= (state-enqueue-item (state $pq $goals) $item)
-   (case $item
-     (
-       ((qitem $_prio (cand (() |- $proved-goal) (cons (resume $rest $goal $parent-score) $rest-cont)))
-        (let $new-score (min $parent-score (term-confidence $proved-goal))
-          (state-enqueue-item (state $pq $goals) (candidate-item $new-score $rest $goal $rest-cont))))
-       ((qitem $_prio (cand (() |- $goal) ()))
-        (state $pq (cons $goal $goals)))
-       ((qitem $prio (cand ($args |- $goal) $cont))
-        (if (has-active-premise? $args $cont)
-            (state $pq $goals)
-            (state (add_to_heap $pq (- 0 $prio) $item) $goals)))
-     )))
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (cand (() |- $proved-goal) (cons (resume $rid $rest $goal $parent-score) $rest-cont))))
+   (resume-merge-enqueue (state $pq $rcache $gcache) $rid $proved-goal $rest $goal $parent-score $rest-cont))
+
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio (cand ((cons $arg $args) |- $item-goal) $cont)))
+   (if (has-active-premise? (cons $arg $args) $cont)
+       (state $pq $rcache $gcache)
+       (state (add_to_heap $pq (- 0 $prio) (qitem $prio (cand ((cons $arg $args) |- $item-goal) $cont))) $rcache $gcache)))
+
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (resume-cand $_rid $_type (cand (() |- $item-goal) ()))))
+   (let $_ (goal-cache-upsert $gcache $item-goal)
+        (state $pq $rcache $gcache)))
+
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (resume-cand $_rid $_type (cand (() |- $proved-goal) (cons (resume $rid $rest $goal $parent-score) $rest-cont)))))
+   (resume-merge-enqueue (state $pq $rcache $gcache) $rid $proved-goal $rest $goal $parent-score $rest-cont))
+
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio (resume-cand $rid $type (cand ((cons $arg $args) |- $item-goal) $cont))))
+   (if (has-active-premise? (cons $arg $args) $cont)
+       (state $pq $rcache $gcache)
+       (state (add_to_heap $pq (- 0 $prio) (qitem $prio (resume-cand $rid $type (cand ((cons $arg $args) |- $item-goal) $cont)))) $rcache $gcache)))
 
 (= (premise-goal-keys ()) ())
 (= (premise-goal-keys (cons $prem $rest))
@@ -121,7 +82,7 @@
 
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
-          ($cont-keys (map-flat (|-> ((resume $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
+          ($cont-keys (map-flat (|-> ((resume $_rid $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
        (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
