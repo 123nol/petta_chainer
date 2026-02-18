@@ -34,44 +34,45 @@
      (candidate-item $score () $proof $cont)))
 
 ;; Best-first over partially-applied rule candidates.
+(= (payload-cand $payload)
+   (if (= $payload (resume-cand $_rid $_type $cand))
+       $cand
+       $payload))
+
+(= (payload-repack $payload $cand)
+   (if (= $payload (resume-cand $rid $type $_old-cand))
+       (resume-cand $rid $type $cand)
+       $cand))
+
 (= (search-rules $steps $heap $rcache $gcache)
    (if (or (== (heap_size $heap) 0) (<= $steps 0))
        ()
        (let* (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
-              ($cand-payload (case $payload
-                                 (
-                                   ((resume-cand $_rid $_type $cand) $cand)
-                                   ($cand $cand)
-              )))
-              ((cand ((cons $prem $rest) |- $goal) $cont) $cand-payload)
+              ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
               ($rid (nextctx))
               ((state $new-pq $_new-rcache $_new-gcache) (enqueue-goal-state $steps (state $pq-rest $rcache $gcache) $score (cons (resume $rid $rest $goal $score) $cont) $prem))
               )
              (search-rules (- $steps 1) $new-pq $rcache $gcache))))
 
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (cand (() |- $item-goal) ())))
-   (let $_ (goal-cache-upsert $gcache $item-goal)
-        (state $pq $rcache $gcache)))
+(= (state-enqueue-cand (@ $state (state $pq $rcache $gcache)) $prio $payload $cand)
+   (case $cand
+     (
+       ((cand (() |- $item-goal) ())
+        (progn (goal-cache-upsert $gcache $item-goal)
+               (state $pq $rcache $gcache)))
+       ((cand (() |- $proved-goal) $cont)
+        (resume-merge-enqueue-cont (state $pq $rcache $gcache) $proved-goal $cont))
+       ((cand ((cons $arg $args) |- $item-goal) $cont)
+        (if (has-active-premise? (cons $arg $args) $cont)
+            (state $pq $rcache $gcache)
+            (state (add_to_heap $pq (- 0 $prio)
+                     (qitem $prio (payload-repack $payload (cand ((cons $arg $args) |- $item-goal) $cont))))
+                   $rcache
+                   $gcache)))
+     )))
 
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (cand (() |- $proved-goal) (cons (resume $rid $rest $goal $parent-score) $rest-cont))))
-   (resume-merge-enqueue (state $pq $rcache $gcache) $rid $proved-goal $rest $goal $parent-score $rest-cont))
-
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio (cand ((cons $arg $args) |- $item-goal) $cont)))
-   (if (has-active-premise? (cons $arg $args) $cont)
-       (state $pq $rcache $gcache)
-       (state (add_to_heap $pq (- 0 $prio) (qitem $prio (cand ((cons $arg $args) |- $item-goal) $cont))) $rcache $gcache)))
-
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (resume-cand $_rid $_type (cand (() |- $item-goal) ()))))
-   (let $_ (goal-cache-upsert $gcache $item-goal)
-        (state $pq $rcache $gcache)))
-
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $_prio (resume-cand $_rid $_type (cand (() |- $proved-goal) (cons (resume $rid $rest $goal $parent-score) $rest-cont)))))
-   (resume-merge-enqueue (state $pq $rcache $gcache) $rid $proved-goal $rest $goal $parent-score $rest-cont))
-
-(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio (resume-cand $rid $type (cand ((cons $arg $args) |- $item-goal) $cont))))
-   (if (has-active-premise? (cons $arg $args) $cont)
-       (state $pq $rcache $gcache)
-       (state (add_to_heap $pq (- 0 $prio) (qitem $prio (resume-cand $rid $type (cand ((cons $arg $args) |- $item-goal) $cont)))) $rcache $gcache)))
+(= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio $payload))
+   (state-enqueue-cand (state $pq $rcache $gcache) $prio $payload (payload-cand $payload)))
 
 (= (premise-goal-keys ()) ())
 (= (premise-goal-keys (cons $prem $rest))

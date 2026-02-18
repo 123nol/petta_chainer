@@ -150,3 +150,6 @@
      (state-enqueue-item
        (state $clean-pq $rcache $gcache)
        (qitem $new-score (resume-cand $rid (goal-type-key $merged-proof) (cand ($rest |- $goal) $rest-cont))))))
+
+(= (resume-merge-enqueue-cont $state $proved-goal (cons (resume $rid $rest $goal $parent-score) $rest-cont))
+   (resume-merge-enqueue $state $rid $proved-goal $rest $goal $parent-score $rest-cont))
