@@ -113,7 +113,7 @@
 (= (process-on-add $kb (: $prf $type $tv))
    (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
        ()
-       (if (and (not (is-expr $prf)) (is-expr $type))
+       (if (and (and (not (is-expr $prf)) (is-expr $type)) (= $tv (STV $s $c)))
            (let* (($pa (car-atom $type))
                   ($args (cdr-atom $type)))
                  (superpose

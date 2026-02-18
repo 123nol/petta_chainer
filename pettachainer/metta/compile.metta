@@ -49,20 +49,33 @@
 (= (inline-premise $kb $premise)
    (if (= $premise (Compute $f $args -> $res))
        (CPU $f $args $res)
-       (if (= $premise (FoldAll $pattern $value $init $fun -> $out))
-           (let $qplan (compile-foldall-query $kb $pattern)
-                (CPU FoldAllFormulaCompiled ($qplan $pattern $value $init $fun) $out))
-           $premise)))
+       (if (= $premise (FoldAllValue $pattern $value $init $fun -> $out))
+           (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out)
+           (if (= $premise (FoldAll $pattern $value $init $fun -> $out))
+               (let $qplan (compile-foldall-query $kb $pattern)
+                    (CPU FoldAllFormulaCompiled ($qplan $pattern $value $init $fun) $out))
+               $premise))))
 
 (= (inline-premises $kb ()) ())
 (= (inline-premises $kb (cons $h $t))
    (cons (inline-premise $kb $h) (inline-premises $kb $t)))
 
+(= (cpu-premise-tv $f $args $res)
+   (if (== $f FoldAllTVRuntimeFormula)
+       (let ($kb $pattern $init $fun) $args
+            (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
+       (if (or (== $f NotFormula)
+               (or (== $f DistGreaterThanFormula)
+                   (or (== $f FoldAllTVFormulaCompiled)
+                       (or (== $f FoldAllTVPatternFormula)
+                           (== $f FoldAllValueFormulaCompiled)))))
+           $res
+           (STV 1.0 1.0))))
+
 (= (in_map $kb $elem)
-   (if (= $elem (CPU $_f $_args $_res))
-       (empty)
+   (if (= $elem (CPU $f $args $res))
+       (prem (CPU $f $args $res) (CPU $f $args $res) (cpu-premise-tv $f $args $res) cpu)
        (prem (: $kb $prf $elem $tv) $elem $tv $prf)))
-(= (in_map $kb (CPU $f $args $res)) (prem (CPU $f $args $res) (CPU $f $args $res) (STV 1.0 1.0) cpu))
 
 ;Helper to match only on the tv of a statement
 (= (tv $tv) (: $kb $prf $elem $tv))
@@ -91,7 +104,7 @@
 ;     ((reverse $resNNprms) |- ((: $kb (cons conjunction $rcclprf) (cons $head $rccltype) $ccltv)))))
 
 (= (compile-inputs (: $kb $prf (CPU $f $args $res) $tv))
-   ((cons (CPU $f $args $res) ()) |- ((: $kb cpu (CPU $f $args $res) (STV 1.0 1.0)))))
+   ((cons (CPU $f $args $res) ()) |- ((: $kb cpu (CPU $f $args $res) (cpu-premise-tv $f $args $res)))))
 
 (= (compile-inputs (: $kb $prf (cons $head $tail) $tv))
      (if (and (not (is-var $head)) (is-member $head (And Or LikelierThan)))
@@ -108,11 +121,14 @@
 (= (uPmapf2 $elem $accum)
    (if (and (= $elem (: $kb $prfa $type $tv))
             (not (is-var $type))) ;Necessary as otherwise we try the unification below which has side effects on $type
-       (if (and (= $type ($rel $a))
-                (== $rel Not))
-           (cons (: $kb $prfa $a $tv_a) (cons (CPU NotFormula ($tv_a) $tv) $accum))
-           (cons $elem $accum))
-       (cons $elem $accum)))
+        (if (and (= $type ($rel $a))
+                 (== $rel Not))
+            (cons (: $kb $prfa $a $tv_a) (cons (CPU NotFormula ($tv_a) $tv) $accum))
+            (if (and (= $type ($rel $a $b))
+                     (is-member $rel (GreaterThan >)))
+                (cons (: $kb $prfa $a $tv_a) (cons (CPU DistGreaterThanFormula ($tv_a $b) $tv) $accum))
+                (cons $elem $accum)))
+        (cons $elem $accum)))
 
 (= (updatePremises $premises) (foldr-flat uPmapf2 () (map-flat uPmapf1 $premises)))
 
@@ -226,7 +242,7 @@
    )))
 
 (= (checkStmt $stmt)
-    (and (= $stmt (: $prf $type (STV $s $c)))
+    (and (= $stmt (: $prf $type $tv))
     (and (not (is-var $prf))
          (or (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
              (== (extract-vars $type) ())))))

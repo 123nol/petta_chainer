@@ -103,7 +103,12 @@
        (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
-(= (cpu-needs-steps $fun) (== $fun FoldAllFormulaCompiled))
+(= (cpu-needs-steps $fun)
+   (or (== $fun FoldAllFormulaCompiled)
+       (or (== $fun FoldAllTVFormulaCompiled)
+           (or (== $fun FoldAllTVPatternFormula)
+               (or (== $fun FoldAllTVRuntimeFormula)
+                   (== $fun FoldAllValueFormulaCompiled))))))
 
 ;; Generic CPU dispatcher used by chainer.
 (= (cpu-call $steps $fun $args)
@@ -124,6 +129,12 @@
           ($nacc (reduce (reduce $call))))
      (foldall-eval $fun $nacc $tail)))
 
+(= (extract-proof-tvs ()) ())
+(= (extract-proof-tvs (cons (: $_kb $_prf $_type $tv) $tail))
+   (cons $tv (extract-proof-tvs $tail)))
+(= (extract-proof-tvs (cons $_head $tail))
+   (extract-proof-tvs $tail))
+
 (= (inject-compiled-adds $adds)
    (if (= $adds ())
        $_
@@ -141,6 +152,72 @@
   (let $matches (collapse (let (: $kbr $prf $pattern $tvin) (run-compiled-query $steps $compiled-query) $value))
        (foldall-eval $fun $init $matches)))
 
+;; Fold over the TV values of all matches in a precompiled query.
+(= (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun)
+  (let $matches (extract-proof-tvs (run-compiled-query $steps $compiled-query))
+       (foldall-eval $fun $init $matches)))
+
+;; Runtime-compiled TV fold preserving current variable bindings.
+(= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
+  (let $kctx (fold-kbctx $kb)
+  (let $matches (collapse (match &kb (: $kctx $prf $pattern $ptv) $ptv))
+       (foldall-eval $fun $init $matches))))
+
+;; Steps parameter kept for uniform CPU call shape.
+(= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
+  (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
+
+(= (fold-kbctx $kb)
+   (if (is-expr $kb) $kb ($kb MAIN ())))
+
+;; Fold over TV values by running the given pattern query under current substitutions.
+(= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
+  (let $matches (collapse (let (: $prf $pattern $ptv)
+                              (query $steps $kb (: $prf $pattern $ptv))
+                              $ptv))
+       (foldall-eval $fun $init $matches)))
+
+;; FoldAllValue runtime kept for compatibility with earlier compiled forms.
+(= (FoldAllValueFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
+  (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Distribution Helpers ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(= (clamp01 $x) (max 0.0 (min 1.0 $x)))
+
+(= (tv-probability $tv)
+   (if (= $tv (STV $s $c))
+       (clamp01 (* $s $c))
+       1.0))
+
+(= (scale-dist-pairs () $w) ())
+(= (scale-dist-pairs (cons ($x $p) $tail) $w)
+   (cons ($x (* $p $w)) (scale-dist-pairs $tail $w)))
+
+(= (dist-add-mass () $x $m) (cons ($x $m) ()))
+(= (dist-add-mass (cons ($k $p) $tail) $x $m)
+   (if (== $k $x)
+       (cons ($k (+ $p $m)) $tail)
+       (cons ($k $p) (dist-add-mass $tail $x $m))))
+
+(= (natdist-bernoulli-step $acc $p ($n $mass))
+   (let $acc0 (dist-add-mass $acc $n (* $mass (- 1.0 $p)))
+        (dist-add-mass $acc0 (+ $n 1) (* $mass $p))))
+
+(= (natdist-convolve-bernoulli $pairs $p)
+   (fold-flat (|-> ($acc $item) (natdist-bernoulli-step $acc $p $item)) () $pairs))
+
+(= (dist-prob-gt () $threshold) 0.0)
+(= (dist-prob-gt (cons ($x $p) $tail) $threshold)
+   (+ (if (> $x $threshold) $p 0.0)
+      (dist-prob-gt $tail $threshold)))
+
+(= (NatDistAddBernoulliFromSTV (NatDist $pairs) $tv)
+   (let $p (tv-probability $tv)
+        (NatDist (natdist-convolve-bernoulli $pairs $p))))
+
 ;;;;;;;;;;;;;;;;;;;;;
 ;; Truth Functions ;;
 ;;;;;;;;;;;;;;;;;;;;;
@@ -148,10 +225,26 @@
 (= (MpFormula (STV $abs $abc) (STV $as $ac))
    (STV (* $abs $as) (min $abc $ac)))
 
+(= (MpFormula (STV $abs $abc) (NatDist $pairs))
+   (NatDist (scale-dist-pairs $pairs (tv-probability (STV $abs $abc)))))
+
+(= (MpFormula (STV $abs $abc) (FloatDist $pairs))
+   (FloatDist (scale-dist-pairs $pairs (tv-probability (STV $abs $abc)))))
+
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (let* (($sb (min $si $sa))
           ($cb (min $ci $ca)))
      (STV $sb $cb)))
+
+(= (AndFormula (STV $s $c) (NatDist $pairs))
+   (NatDist (scale-dist-pairs $pairs (tv-probability (STV $s $c)))))
+
+(= (AndFormula (STV $s $c) (FloatDist $pairs))
+   (FloatDist (scale-dist-pairs $pairs (tv-probability (STV $s $c)))))
+
+(= (AndFormula (NatDist $pairs) (STV $s $c)) (STV $s $c))
+
+(= (AndFormula (FloatDist $pairs) (STV $s $c)) (STV $s $c))
 
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
    (let* (($sb (min $si $sa))
@@ -167,6 +260,12 @@
 
 (= (AndProjection (STV $s $c)) (STV $s $c))
 (= (OrProjection (STV $s $c)) (STV $s $c))
+
+(= (DistGreaterThanFormula (NatDist $pairs) $threshold)
+   (STV (dist-prob-gt $pairs $threshold) 1.0))
+
+(= (DistGreaterThanFormula (FloatDist $pairs) $threshold)
+   (STV (dist-prob-gt $pairs $threshold) 1.0))
 
 (= (NotFormula (STV $s $c) (STV (- 1 $s) $c)))
 
