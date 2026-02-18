@@ -20,7 +20,6 @@
 !(compileadd kb (: cntKidInRule
     (Implication
         (Premises
-            (Room $room)
             (FoldAllValue (In $room $kid) $tvin (NatDist ((0 1.0))) NatDistAddBernoulliFromSTV -> $dist))
         (Conclusions
             (CntKidIn $room)))
@@ -29,7 +28,6 @@
 !(compileadd kb (: playTogetherRule
     (Implication
         (Premises
-            (Room $room)
             (GreaterThan (CntKidIn $room) 1))
         (Conclusions
             (PlayTogetherIn $room)))
@@ -37,24 +35,24 @@
 
 !(test
     (let (: $prf (CntKidIn room1) $tv)
-         (query 5 kb (: $prf (CntKidIn room1) $tv))
+         (query 40 kb (: $prf (CntKidIn room1) $tv))
          $tv)
     (NatDist ((0 0.2) (1 0.4) (2 0.2))))
 
 !(test
     (let (: $prf (CntKidIn room2) $tv)
-         (query 5 kb (: $prf (CntKidIn room2) $tv))
+         (query 40 kb (: $prf (CntKidIn room2) $tv))
          $tv)
     (NatDist ((0 0.44799999999999995) (1 0.30400000000000005) (2 0.048))))
 
 !(test
     (let (: $prf (PlayTogetherIn room1) $tv)
-         (query 5 kb (: $prf (PlayTogetherIn room1) $tv))
+         (query 40 kb (: $prf (PlayTogetherIn room1) $tv))
          $tv)
-    (STV 0.2 0.75))
+    (STV 0.2 0.8571428571428571))
 
 !(test
     (let (: $prf (PlayTogetherIn room2) $tv)
-         (query 5 kb (: $prf (PlayTogetherIn room2) $tv))
+         (query 40 kb (: $prf (PlayTogetherIn room2) $tv))
          $tv)
-    (STV 0.048 0.75))
+    (STV 0.048 0.8571428571428571))

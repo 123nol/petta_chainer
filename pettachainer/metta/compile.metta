@@ -61,20 +61,21 @@
    (cons (inline-premise $kb $h) (inline-premises $kb $t)))
 
 (= (cpu-premise-tv $f $args $res)
-   (if (== $f FoldAllTVRuntimeFormula)
-       (let ($kb $pattern $init $fun) $args
-            (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
-       (if (or (== $f NotFormula)
-               (or (== $f DistGreaterThanFormula)
-                   (or (== $f FoldAllTVFormulaCompiled)
-                       (or (== $f FoldAllTVPatternFormula)
-                           (== $f FoldAllValueFormulaCompiled)))))
-           $res
-           (STV 1.0 1.0))))
+   (if (or (== $f NotFormula)
+           (or (== $f DistGreaterThanFormula)
+               (or (== $f FoldAllTVFormulaCompiled)
+                   (or (== $f FoldAllTVPatternFormula)
+                       (or (== $f FoldAllTVRuntimeFormula)
+                           (== $f FoldAllValueFormulaCompiled))))))
+       $res
+       (STV 1.0 1.0)))
 
 (= (in_map $kb $elem)
    (if (= $elem (CPU $f $args $res))
-       (prem (CPU $f $args $res) (CPU $f $args $res) (cpu-premise-tv $f $args $res) cpu)
+       (prem (: $kb $prf (CPU $f $args $res) (cpu-premise-tv $f $args $res))
+             (CPU $f $args $res)
+             (cpu-premise-tv $f $args $res)
+             cpu)
        (prem (: $kb $prf $elem $tv) $elem $tv $prf)))
 
 ;Helper to match only on the tv of a statement

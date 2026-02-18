@@ -7,23 +7,23 @@
    (if (is-var $x) 1.0 $x))
 
 (= (tv-confidence $tv)
-   (if (= $tv (STV $_s $c))
-       (or-1.0 $c)
-       1.0))
+   (if (is-var $tv)
+       1.0
+       (if (= $tv (STV $_s $c))
+           (or-1.0 $c)
+           1.0)))
 
 ;; Rule-native expected confidence extraction from compiled premises.
 (= (normalize-expected-tv $tv)
-   (if (= $tv (STV $s $c))
-       (STV (or-1.0 $s)
-            (or-1.0 $c))
-       $tv))
+   (if (is-var $tv)
+       $tv
+       (if (= $tv (STV $s $c))
+           (STV (or-1.0 $s)
+                (or-1.0 $c))
+           $tv)))
 
 (= (cpu-expected-confidence $fun $args)
-   (if (is-member $fun (() MpFormula AndFormula OrFormula LikelierThanFormula))
-       (let* ((($a $b) $args)
-              ($res (reduce (reduce (cons $fun ((normalize-expected-tv $a) (normalize-expected-tv $b)))))))
-         (tv-confidence $res))
-       1.0))
+   1.0)
 
 ;; Unified confidence extraction for both expected and concrete terms.
 (= (term-confidence $term)
@@ -75,10 +75,14 @@
 
 ;; Revision adapter for merging two proof atoms with alpha-equivalent types.
 (= (RevisionMergeProof (: $kb $prf1 $type1 $tv1) (: $_kb2 $prf2 $_type2 $tv2))
-   (: $kb (merge/revision $prf1 $prf2) $type1 (mergetvs $tv1 $tv2)))
+   (: $kb (merge/revision $prf1 $prf2) $type1
+      (if (and (= $tv1 (STV $_m1 $_c1))
+               (= $tv2 (STV $_m2 $_c2)))
+          (mergetvs $tv1 $tv2)
+          $tv1)))
 
 (= (proof-atom? $term)
-   (if (= $term (: $_kb $_prf $_type $_tv))
+   (if (and (not (is-var $term)) (= $term (: $_kb $_prf $_type $_tv)))
        true
        false))
 
