@@ -317,7 +317,17 @@
               ($counts (resample-counts $cdf $n 0 ())))
           (scale-dist-pairs $counts (/ 1.0 $n)))))
 
-(= (particle-budget) 512)
+(= (particle-budget-default) 512)
+
+(= (ParticleSetBudget $n)
+   (change-state! particle_budget $n))
+
+(= (ParticleGetBudget)
+   (let $mb (catch (get-state particle_budget))
+        (if-error $mb (particle-budget-default) $mb)))
+
+(= (particle-budget)
+   (ParticleGetBudget))
 
 (= (compress-pairs $pairs)
    (let $norm (normalize-pairs $pairs)

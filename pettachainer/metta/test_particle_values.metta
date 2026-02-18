@@ -158,6 +158,18 @@
 
 !(test
     (progn
+        (ParticleSetBudget 128)
+        (ParticleGetBudget))
+    128)
+
+!(test
+    (progn
+        (ParticleSetBudget 512)
+        (ParticleGetBudget))
+    512)
+
+!(test
+    (progn
         (ParticleFromPairs ((1 0.6) (2 0.4)))
         (ParticleFromPairs ((3 1.0)))
         (ParticleStoreCount))

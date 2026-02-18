@@ -4,3 +4,17 @@ To install, clone this repo and its dependency into the same directory:
 git clone https://github.com/patham9/PeTTa.git
 git clone https://github.com/rTreutlein/PeTTaChainer.git
 ```
+
+## Benchmarks
+
+Run the NatDist vs ParticleDist benchmark:
+
+```bash
+python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particle-budgets 128,256,512 --repeats 2
+```
+
+Optional JSON export:
+
+```bash
+python pettachainer/benchmarks/particle_vs_nat.py --json-out /tmp/particle_bench.json
+```
