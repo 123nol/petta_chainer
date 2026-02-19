@@ -213,6 +213,42 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 !(query 40 kb (: $prf (Taller countryA countryB) $tv))
 ```
 
+## Example: Average Height in a Group
+
+This example computes average height per group using `FoldAllValue`.
+Heights are encoded in STV strength (`(STV height 1.0)`) and folded into a `(Stats sum count)` accumulator.
+
+```metta
+(= (AndFormula (STV $s $c) (Stats $sum $count))
+   (STV $s $c))
+(= (AndFormula (Stats $sum $count) (STV $s $c))
+   (STV $s $c))
+
+(= (AccHeightStats (Stats $sum $count) (STV $h $c))
+   (Stats (+ $sum $h) (+ $count 1)))
+
+(= (AverageFromStats (Stats $sum $count))
+   (/ $sum $count))
+
+!(compileadd kb (: group1 (Group g1) (STV 1.0 1.0)))
+!(compileadd kb (: h11 (Height g1 alice) (STV 160 1.0)))
+!(compileadd kb (: h12 (Height g1 bob) (STV 170 1.0)))
+!(compileadd kb (: h13 (Height g1 carol) (STV 180 1.0)))
+
+!(compileadd kb (: avgHeightRule
+    (Implication
+        (Premises
+            (Group $g)
+            (FoldAllValue (Height $g $person) $tvh (Stats 0 0) AccHeightStats -> $stats))
+        (Conclusions
+            (HeightStats $g $stats)))
+    (STV 1.0 1.0)))
+
+!(let (: $prf (HeightStats g1 $stats) $tv)
+      (query 80 kb (: $prf (HeightStats g1 $stats) $tv))
+      (AverageFromStats $stats))
+```
+
 ## Notes
 
 - `NatDist`/`FloatDist` remain available for exact small cases.
