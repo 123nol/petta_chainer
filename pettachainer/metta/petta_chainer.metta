@@ -217,53 +217,53 @@
       (add-atom &particle_store (particle $pid $x $w))
       (particle-store-pairs $pid $tail)))
 
+(= (list-count ()) 0)
+(= (list-count (cons $_x $tail))
+   (+ 1 (list-count $tail)))
+
+(= (pairs-stats ()) (Stats 0.0 0.0 0))
+(= (pairs-stats (cons ($_x $w) $tail))
+   (let (Stats $sum $sumsq $count) (pairs-stats $tail)
+        (Stats (+ $w $sum)
+               (+ (* $w $w) $sumsq)
+               (+ 1 $count))))
+
 (= (ParticleStoreCount)
-   (pair-count (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w)))))
+   (list-count (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w)))))
 
 (= (ParticleStoreClear)
    (progn
       (remove-all-atoms &particle_store)
       (change-state! particleid 0)))
 
-(= (particle-tv-id-or-empty (ParticleDist $pid $scale)) $pid)
-(= (particle-tv-id-or-empty (ParticleDist $pid)) $pid)
-(= (particle-tv-id-or-empty $tv) (empty))
-
-(= (kb-particle-ids)
-   (list_to_set (collapse (match &kb (: $_kb $_prf $_type $tv)
-       (particle-tv-id-or-empty $tv)))))
-
-(= (particle-store-prune-list () $keep) ())
-(= (particle-store-prune-list (cons ($pid $x $w) $tail) $keep)
-   (progn
-      (if (is-member $pid $keep)
-          ()
-          (remove-atom &particle_store (particle $pid $x $w)))
-      (particle-store-prune-list $tail $keep)))
-
-(= (max-list () $acc) $acc)
-(= (max-list (cons $x $tail) $acc)
-   (max-list $tail (max $x $acc)))
-
 (= (ParticleStorePruneKB)
-   (let* (($keep (kb-particle-ids))
+   (let* (($keep
+            (list_to_set
+              (collapse
+                (match &kb (: $_kb $_prf $_type $tv)
+                   (if (= $tv (ParticleDist $pid $scale))
+                       $pid
+                       (if (= $tv (ParticleDist $pid))
+                           $pid
+                           (empty)))))))
           ($atoms (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w))))
-          ($_pruned (particle-store-prune-list $atoms $keep))
-          ($maxid (max-list $keep -1))
+          ($_pruned
+            (fold-flat
+              (|-> ($acc ($pid $x $w))
+                (progn
+                   (if (is-member $pid $keep)
+                       ()
+                       (remove-atom &particle_store (particle $pid $x $w)))
+                   $acc))
+              ()
+              $atoms))
+          ($maxid (fold-flat (|-> ($acc $pid) (max $acc $pid)) -1 $keep))
           ($_reset (change-state! particleid (+ $maxid 1))))
       (ParticleStoreCount)))
 
-(= (pair-weight-sum ()) 0.0)
-(= (pair-weight-sum (cons ($_x $w) $tail))
-   (+ $w (pair-weight-sum $tail)))
-
-(= (pair-weight-sumsq ()) 0.0)
-(= (pair-weight-sumsq (cons ($_x $w) $tail))
-   (+ (* $w $w) (pair-weight-sumsq $tail)))
-
 (= (particle-neff-from-pairs $pairs)
    (let* (($norm (normalize-pairs $pairs))
-          ($sumsq (pair-weight-sumsq $norm)))
+          ((Stats $_sum $sumsq $_count) (pairs-stats $norm)))
       (if (<= $sumsq 0.0)
           0.0
           (/ 1.0 $sumsq))))
@@ -278,12 +278,8 @@
 (= (particle-confidence-from-pairs $pairs)
    (particle-confidence-from-neff (particle-neff-from-pairs $pairs)))
 
-(= (pair-count ()) 0)
-(= (pair-count (cons $_pair $tail))
-   (+ 1 (pair-count $tail)))
-
 (= (normalize-pairs $pairs)
-   (let $total (pair-weight-sum $pairs)
+   (let (Stats $total $_sumsq $_count) (pairs-stats $pairs)
         (if (<= $total 0.0)
             ()
             (scale-dist-pairs $pairs (/ 1.0 $total)))))
@@ -330,8 +326,9 @@
    (ParticleGetBudget))
 
 (= (compress-pairs $pairs)
-   (let $norm (normalize-pairs $pairs)
-        (if (<= (pair-count $norm) (particle-budget))
+   (let* (($norm (normalize-pairs $pairs))
+          ((Stats $_sum $_sumsq $count) (pairs-stats $norm)))
+        (if (<= $count (particle-budget))
             $norm
             (pairs-resample-systematic $norm (particle-budget)))))
 
@@ -346,7 +343,7 @@
    (scale-dist-pairs (particle-fetch-pairs $pid) $scale))
 
 (= (ParticlePairs (ParticleDist $pid))
-   (particle-fetch-pairs $pid))
+   (ParticlePairs (ParticleDist $pid 1.0)))
 
 (= (scale-dist-pairs () $w) ())
 (= (scale-dist-pairs (cons ($x $p) $tail) $w)
@@ -375,10 +372,11 @@
    (let $nacc (+ $acc (if (> $xa $xb) (* $wa $wb) 0.0))
         (dist-prob-gt2-inner $xa $wa $tail $nacc)))
 
-(= (dist-prob-gt2 () $pairsb $acc) $acc)
-(= (dist-prob-gt2 (cons ($xa $wa) $taila) $pairsb $acc)
-   (let $nacc (dist-prob-gt2-inner $xa $wa $pairsb $acc)
-        (dist-prob-gt2 $taila $pairsb $nacc)))
+(= (dist-prob-gt2 () $pairsb) 0.0)
+(= (dist-prob-gt2 (cons ($xa $wa) $taila) $pairsb)
+   (let* (($acc (dist-prob-gt2-inner $xa $wa $pairsb 0.0))
+          ($rest (dist-prob-gt2 $taila $pairsb)))
+      (+ $acc $rest)))
 
 (= (particle-map-pairs $fun () $acc) $acc)
 (= (particle-map-pairs $fun (cons ($x $w) $tail) $acc)
@@ -454,7 +452,7 @@
    (ParticleDist $pid (* $scale (tv-probability (STV $abs $abc)))))
 
 (= (MpFormula (STV $abs $abc) (ParticleDist $pid))
-   (ParticleDist $pid (tv-probability (STV $abs $abc))))
+   (MpFormula (STV $abs $abc) (ParticleDist $pid 1.0)))
 
 (= (AndFormula (STV $si $ci) (STV $sa $ca))
    (let* (($sb (min $si $sa))
@@ -471,7 +469,7 @@
    (ParticleDist $pid (* $scale (tv-probability (STV $s $c)))))
 
 (= (AndFormula (STV $s $c) (ParticleDist $pid))
-   (ParticleDist $pid (tv-probability (STV $s $c))))
+   (AndFormula (STV $s $c) (ParticleDist $pid 1.0)))
 
 (= (AndFormula (NatDist $pairs) (STV $s $c)) (STV $s $c))
 
@@ -479,7 +477,8 @@
 
 (= (AndFormula (ParticleDist $pid $scale) (STV $s $c)) (STV $s $c))
 
-(= (AndFormula (ParticleDist $pid) (STV $s $c)) (STV $s $c))
+(= (AndFormula (ParticleDist $pid) (STV $s $c))
+   (AndFormula (ParticleDist $pid 1.0) (STV $s $c)))
 
 (= (OrFormula (STV $si $ci) (STV $sa $ca))
    (let* (($sb (min $si $sa))
@@ -508,9 +507,7 @@
            (particle-confidence-from-pairs $pairs))))
 
 (= (DistGreaterThanFormula (ParticleDist $pid) $threshold)
-   (let $pairs (particle-fetch-pairs $pid)
-      (STV (dist-prob-gt $pairs $threshold)
-           (particle-confidence-from-pairs $pairs))))
+   (DistGreaterThanFormula (ParticleDist $pid 1.0) $threshold))
 
 (= (DistGreaterThanDistFormula $pda $pdb)
    (let* (($pida (particle-dist-id $pda))
@@ -521,7 +518,7 @@
           ($pairsb (particle-fetch-pairs $pidb))
           ($ca (particle-confidence-from-pairs $pairsa))
           ($cb (particle-confidence-from-pairs $pairsb)))
-      (STV (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb 0.0))
+      (STV (* (* $scalea $scaleb) (dist-prob-gt2 $pairsa $pairsb))
            (min $ca $cb))))
 
 (= (NotFormula (STV $s $c) (STV (- 1 $s) $c)))

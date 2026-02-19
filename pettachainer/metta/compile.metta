@@ -111,12 +111,6 @@
                      (compile-inputs (: $kb $prf (superpose $tail) $tv))))
          (empty)))
 
-(= (uPmapf1 $elem)
-   (if (and (= $elem (: $kb $prf $type $tv))
-            (not (is-var $type)))
-       (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions))) $elem $elem)
-       $elem))
-
 (= (uPmapf2 $elem $accum)
    (if (and (= $elem (: $kb $prfa $type $tv))
             (not (is-var $type))) ;Necessary as otherwise we try the unification below which has side effects on $type
@@ -134,7 +128,7 @@
                 (cons $elem $accum)))
         (cons $elem $accum)))
 
-(= (updatePremises $premises) (foldr-flat uPmapf2 () (map-flat uPmapf1 $premises)))
+ (= (updatePremises $premises) (foldr-flat uPmapf2 () $premises))
 
 (= (postCore ($premises |- $conclusions) $actionB $actionA)
   (let $npremises (updatePremises $premises)
