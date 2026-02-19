@@ -1,6 +1,7 @@
 import logging
 import multiprocessing as mp
 import os
+from pathlib import Path
 import threading
 import traceback
 import uuid
@@ -18,6 +19,12 @@ LOADEDLIB = False
 LOADED_LOCK = threading.Lock()
 
 
+def get_language_spec(llm_focused: bool = True) -> str:
+    base_dir = Path(__file__).resolve().parent
+    spec_name = "LLM_RULE_SPEC.md" if llm_focused else "LANGUAGE_SPEC.md"
+    return (base_dir / spec_name).read_text(encoding="utf-8")
+
+
 def _query_worker(handler: PeTTa, kb: str, steps: int, atom: str, conn):
     try:
         atoms = handler.process_metta_string(f"!(query {steps} {kb} {atom})")
@@ -26,6 +33,12 @@ def _query_worker(handler: PeTTa, kb: str, steps: int, atom: str, conn):
         conn.send(("err", (exc.__class__.__name__, str(exc), traceback.format_exc())))
     finally:
         conn.close()
+
+
+def _as_list(value) -> List[str]:
+    if isinstance(value, str):
+        return [value]
+    return value
 
 class PeTTaChainer:
     def __init__(self):
@@ -51,7 +64,7 @@ class PeTTaChainer:
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         if timeout_sec is None or timeout_sec <= 0:
-            return self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})")
+            return _as_list(self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})"))
 
         # Use a forked process so timeout can actually stop CPU-bound query work.
         ctx = mp.get_context("fork")
@@ -81,6 +94,10 @@ class PeTTaChainer:
 
         parent_conn.close()
         raise RuntimeError("PeTTa query worker exited without returning a result")
+
+    @staticmethod
+    def language_spec(llm_focused: bool = True) -> str:
+        return get_language_spec(llm_focused=llm_focused)
 
 if __name__ == '__main__':
     handler = PeTTaChainer()

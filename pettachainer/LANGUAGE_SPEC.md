@@ -2,6 +2,8 @@
 
 This document describes how to write facts, rules, and queries in the PeTTaChainer MeTTa language used in this repository.
 
+If you need an LLM-oriented helper-first spec, use `pettachainer/LLM_RULE_SPEC.md`.
+
 ## Core Model
 
 - Knowledge is stored as proof atoms of the form:

@@ -18,3 +18,12 @@ Optional JSON export:
 ```bash
 python pettachainer/benchmarks/particle_vs_nat.py --json-out /tmp/particle_bench.json
 ```
+
+## Python API: Language Spec String
+
+```python
+from pettachainer import get_language_spec
+
+llm_spec = get_language_spec(llm_focused=True)
+full_spec = get_language_spec(llm_focused=False)
+```
