@@ -112,7 +112,7 @@
            (or (== $fun FoldAllTVPatternFormula)
                (or (== $fun FoldAllTVRuntimeFormula)
                    (or (== $fun FoldAllValueFormulaCompiled)
-                       (== $fun DistAverageFormula))))))
+                        (== $fun DistAverageFormula)))))))
 
 ;; Generic CPU dispatcher used by chainer.
 (= (cpu-call $steps $fun $args)
