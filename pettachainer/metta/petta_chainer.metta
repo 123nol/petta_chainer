@@ -103,7 +103,7 @@
 (= (has-active-premise? $args $cont)
    (let* (($prem-keys (premise-goal-keys $args))
           ($cont-keys (map-flat (|-> ((resume $_rid $_prem $_r (: $_kb $_prf $type $_tv) $_ps)) $type) $cont)))
-       (not (== (/=a\ $prem-keys $cont-keys) ()))))
+        (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun)
