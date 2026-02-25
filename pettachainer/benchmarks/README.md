@@ -32,3 +32,11 @@ python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particl
 - `nat_conf`: NatDist confidence (currently 1.0)
 - `particle_conf`: particle confidence from `N_eff / (N_eff + 20)`
 - `particle_atoms`: number of stored particle atoms after evaluation
+
+## Metta Tuffy Deep Variant
+
+Run the deep-proof-tree tunable benchmark variant in-place:
+
+```bash
+python pettachainer/metta/benchmarks/bench_tuffy_scale.py --pairs 4,8 --runs 2 --variant deep-proof-tree --deep-depth 4 --deep-branching 2
+```

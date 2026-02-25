@@ -9,6 +9,8 @@ from typing import List, Optional
 
 from petta import PeTTa
 
+from .pln_validator import check_query, check_stmt
+
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     level=logging.INFO
@@ -40,6 +42,14 @@ def _as_list(value) -> List[str]:
         return [value]
     return value
 
+
+def _first_result(value):
+    if isinstance(value, list):
+        if not value:
+            raise ValueError("PeTTa returned no results")
+        return value[0]
+    return value
+
 class PeTTaChainer:
     def __init__(self):
         global LOADEDLIB
@@ -57,21 +67,40 @@ class PeTTaChainer:
                     LOADEDLIB = True
 
     def add_atom(self, atom: str) -> str:
-        return self.handler.process_metta_string(f"!(compileadd {self.kb} {atom})")
+        evaluated_atom = self.evaluate_statement(atom)
+        if check_stmt(evaluated_atom) == 0.0:
+            raise ValueError(
+                f"Invalid evaluated PLN statement. input={atom} evaluated={evaluated_atom}"
+            )
+        return self.handler.process_metta_string(f"!(compileadd {self.kb} {evaluated_atom})")
 
-    def print_kb(self) -> str:
-        return self.handler.process_metta_string(f"!(match &kb $a $a)")
+    def evaluate_statement(self, atom: str) -> str:
+        evaluated = self.handler.process_metta_string(f"!(eval {atom})")
+        return str(_first_result(evaluated)).strip()
+
+    def evaluate_query(self, atom: str) -> str:
+        evaluated = self.handler.process_metta_string(f"!(eval {atom})")
+        return str(_first_result(evaluated)).strip()
+
+    def print_kb(self):
+        print(self.handler.process_metta_string(f"!(match &kb $a $a)"))
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
+        evaluated_query = self.evaluate_query(atom)
+        if check_query(evaluated_query) == 0.0:
+            raise ValueError(
+                f"Invalid evaluated PLN query. input={atom} evaluated={evaluated_query}"
+            )
+
         if timeout_sec is None or timeout_sec <= 0:
-            return _as_list(self.handler.process_metta_string(f"!(query {steps} {self.kb} {atom})"))
+            return _as_list(self.handler.process_metta_string(f"!(query {steps} {self.kb} {evaluated_query})"))
 
         # Use a forked process so timeout can actually stop CPU-bound query work.
         ctx = mp.get_context("fork")
         parent_conn, child_conn = ctx.Pipe(duplex=False)
         worker = ctx.Process(
             target=_query_worker,
-            args=(self.handler, self.kb, steps, atom, child_conn),
+            args=(self.handler, self.kb, steps, evaluated_query, child_conn),
             daemon=True,
         )
         worker.start()

@@ -31,9 +31,13 @@ full_spec = get_language_spec(llm_focused=False)
 ## Python API: Shared PLN Validator
 
 ```python
-from pettachainer import check_query, check_stmt
+from pettachainer import PeTTaChainer, check_query, check_stmt
 
-check_stmt("(: s1 (Dog fido) (STV 1.0 1.0))")
-check_stmt("!(compileadd kb (: s2 (HeightDist g1 alice) (PointMass 170.0)))")
-check_query("!(query 20 kb (: $prf (Dog fido) $tv))")
+handler = PeTTaChainer()
+
+stmt_eval = handler.evaluate_statement("(: s1 (Dog fido) (STV 1.0 1.0))")
+check_stmt(stmt_eval)
+
+query_eval = handler.evaluate_query("(: $prf (Dog fido) $tv)")
+check_query(query_eval)
 ```

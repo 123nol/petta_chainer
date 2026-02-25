@@ -1,38 +1,36 @@
 # PeTTaChainer LLM Rule Spec
 
-This spec is intentionally helper-first.
-It focuses on forms that `compile` rewrites and that an LLM should generate.
+This spec focuses only on constructing valid Statements and Queries.
+It does not describe how to invoke chainer interface functions.
 
-## Core Output Forms
+## Core Forms
 
-- Add fact or rule:
+- Statement form (fact or rule assertion):
 
 ```metta
-!(compileadd kb (: proof-id type tv))
+(: proof-id type tv)
 ```
 
-- Query:
+- Query pattern form:
 
 ```metta
-!(query steps kb (: $prf type $tv))
+(: $proofVar typePattern $tvVar)
 ```
 
 ## Rule Template
 
 ```metta
-!(compileadd kb (: ruleName
+(: ruleName
     (Implication
         (Premises
             premise1
             premise2)
         (Conclusions
             conclusion1))
-    (STV 1.0 1.0)))
+    (STV 1.0 1.0))
 ```
 
-## Premise Helpers You Should Use
-
-Use these high-level helpers. Do not emit internal `CPU ...Formula` forms.
+## Premise Helpers You Can Use
 
 ### Compute
 
@@ -104,29 +102,29 @@ Avoid encoding numeric values in `STV` strength for measurement semantics.
 ## Example: Average Height Rule
 
 ```metta
-!(compileadd kb (: avgHeightDistRule
+(: avgHeightDistRule
     (Implication
         (Premises
             (Group $g)
             (AverageDist (HeightDist $g $person) -> $avgDist))
         (Conclusions
             (AvgHeightDist $g)))
-    (STV 1.0 1.0)))
+    (STV 1.0 1.0))
 
-!(query 20 kb (: $prf (AvgHeightDist g1) $avgDist))
+(: $prf (AvgHeightDist g1) $avgDist)
 ```
 
 ## Example: Rectangle Area Rule
 
 ```metta
-!(compileadd kb (: areaDistRule
+(: areaDistRule
     (Implication
         (Premises
             (Rectangle $rect)
             (Map2Dist * (LengthDist $rect) (WidthDist $rect) -> $areaDist))
         (Conclusions
             (AreaDist $rect)))
-    (STV 1.0 1.0)))
+    (STV 1.0 1.0))
 
-!(query 20 kb (: $prf (AreaDist rectA) $areaDist))
+(: $prf (AreaDist rectA) $areaDist)
 ```
