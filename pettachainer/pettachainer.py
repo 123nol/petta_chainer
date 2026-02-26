@@ -83,7 +83,9 @@ class PeTTaChainer:
         return str(_first_result(evaluated)).strip()
 
     def print_kb(self):
-        print(self.handler.process_metta_string(f"!(match &kb $a $a)"))
+        atoms = self.handler.process_metta_string(f"!(match &kb $a (pretty $a))")
+        for atom in _as_list(atoms):
+            print(atom)
 
     def query(self, atom: str, steps: int = 100, timeout_sec: Optional[float] = 10) -> List[str]:
         evaluated_query = self.evaluate_query(atom)

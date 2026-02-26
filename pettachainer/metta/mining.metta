@@ -5,6 +5,7 @@
 !(import! &self (library lib_import))
 !(use-module! assoc)
 !(import_prolog_function (superpose (empty_assoc put_assoc get_assoc)))
+!(bind! &mining_stats (new-space))
 
 (= (shared-objects () $argsb) ())
 (= (shared-objects (cons $h $t) $argsb)
@@ -67,15 +68,15 @@
    (let* (($w (min $ca $cb))
           ($ainc (* $w (* $sa $sb)))
           ($binc (* $w (* $sa (- 1.0 $sb))))
-          ($m (collapse (once (match &kb (ind-impl-stats $kb $premk $conck $olda $oldb) (ab $olda $oldb)))) )
+          ($m (collapse (once (match &mining_stats (ind-impl-stats $kb $premk $conck $olda $oldb) (ab $olda $oldb)))) )
           ($cur (if (== $m ()) (ab 0.0 0.0) (car-atom $m)))
           ((ab $olda $oldb) $cur)
           ($newa (+ $olda $ainc))
           ($newb (+ $oldb $binc))
-          ($_ (collapse (match &kb
+          ($_ (collapse (match &mining_stats
                               (ind-impl-stats $kb $premk $conck $olda2 $oldb2)
-                              (remove-atom &kb (ind-impl-stats $kb $premk $conck $olda2 $oldb2)))))
-          ($_ (add-atom &kb (ind-impl-stats $kb $premk $conck $newa $newb))))
+                              (remove-atom &mining_stats (ind-impl-stats $kb $premk $conck $olda2 $oldb2)))))
+          ($_ (add-atom &mining_stats (ind-impl-stats $kb $premk $conck $newa $newb))))
         (ab $newa $newb)))
 
 (= (mine-predicate-pair $kb $pa $argsa (STV $sa $ca) $pb $argsb (STV $sb $cb))

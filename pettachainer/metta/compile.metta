@@ -204,7 +204,9 @@
                       (if (is-var $nb) (empty) (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
                       (if (is-var $a) (empty) (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
 
-                      (inverse-implication $kb $prf $na $b $tv)
+                      (if (not (= $prf (mined_implication $_ $_)))
+                          (inverse-implication $kb $prf $na $b $tv)
+                          (empty))
                       ;(if (is-var $na) (empty) (compile-outputs (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
                       ;(if (is-var $b) (empty) (compile-inputs (: $pb2 $b $btv2)))
                       )))
@@ -265,13 +267,56 @@
 
 (= (mf $kb ($kb $t)) $t)
 
+(= (pretty-prf-token $prf)
+   (case $prf
+      (
+        ((mined_implication $premk $conck)
+         (Implication (cons Premises ($premk)) (cons Conclusions ($conck))))
+        ($other $other)
+      )))
+
+(= (pretty-prf $prf)
+   (if (is-expr $prf)
+       (map-nested2 pretty-prf-token $prf)
+       $prf))
+
+(= (lookup-mined-tv $premk $conck $fallback-tv)
+   (let $m (collapse
+             (once
+               (match &kb
+                      (: ($kbid MAIN ()) (mined_implication $premk $conck) $itype $itv)
+                      $itv)))
+      (if (== $m ()) $fallback-tv (car-atom $m))))
+
+(= (extract-mined-itv-from-args $args $fallback-tv)
+   (if (= $args ($_prem (CPU MpFormula ($itv $_atv) $_btv)))
+       $itv
+       (if (= $args (cons $h $t))
+           (if (= $h (CPU MpFormula ($itv $_atv2) $_btv2))
+               $itv
+               (extract-mined-itv-from-args $t $fallback-tv))
+           $fallback-tv)))
+
+(= (pretty (: $prf $type $tv))
+   (: (pretty-prf $prf) $type $tv))
+
+(= (pretty (rules ($args |- $goal)))
+   (if (= $goal (: $kb ((mined_implication $premk $conck) $p) $type $tv))
+       (let* (($ptv (if (is-var $tv)
+                        (let* (($tv1 (extract-mined-itv-from-args $args $tv))
+                               ($tv2 (lookup-mined-tv $premk $conck $tv1)))
+                          $tv2)
+                        $tv)))
+            (: mined_implication ((pretty-prf-token (mined_implication $premk $conck)) $p) $type $ptv))
+       (pretty $goal)))
+
 (= (pretty (: $kb $prf $type $tv))
   (if (is-expr $kb)
     (if (= $kb ($kbid MAIN ()))
-      (: $prf $type $tv)
+      (: (pretty-prf $prf) $type $tv)
       (let ($_ $idx $vars) $kb
       (let $x (map-flat (mf $kb) (collapse (match &kb (: $kb $p $t $tv2) ($kb $t))))
-         (: $prf (Implication (cons Premises $x) (cons Conclusions ($type))) $tv)
+         (: (pretty-prf $prf) (Implication (cons Premises $x) (cons Conclusions ($type))) $tv)
       )))
-    (: $prf $type $tv)
+    (: (pretty-prf $prf) $type $tv)
   ))
