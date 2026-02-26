@@ -3,6 +3,7 @@
 !(use-module! heaps)
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 !(import! &self chainer_utils)
+!(import! &self forward_chainer)
 !(bind! &resume_cache (new-space))
 !(bind! &goal_cache (new-space))
 !(bind! &particle_store (new-space))
