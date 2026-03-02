@@ -38,8 +38,14 @@
 !(test
     (let (: $prf (CntKidIn room1) $tv)
          (query 40 kb (: $prf (CntKidIn room1) $tv))
-         $tv)
-    (NatDist ((0 0.2) (1 0.4) (2 0.2))))
+         (let (NatDist (($k0 $v0) ($k1 $v1) ($k2 $v2))) $tv
+              (and (== $k0 0)
+                   (and (== $k1 1)
+                        (and (== $k2 2)
+                             (and (and (> $v0 0.1999) (< $v0 0.2001))
+                                  (and (and (> $v1 0.3999) (< $v1 0.4001))
+                                       (and (> $v2 0.1999) (< $v2 0.2001)))))))))
+    true)
 
 !(test
     (let (: $prf (CntKidIn room2) $tv)
@@ -52,17 +58,17 @@
     true)
 
 !(test
-    (let (: $prf (PlayTogetherIn room1) $tv)
-         (query 40 kb (: $prf (PlayTogetherIn room1) $tv))
-         (let (STV $s $c) $tv
+    (let (: $prf (CntKidIn room1) $cnt)
+         (query 40 kb (: $prf (CntKidIn room1) $cnt))
+         (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
               (and (and (> $s 0.1999) (< $s 0.2001))
                    (and (> $c 0.7499) (< $c 0.7501)))))
     true)
 
 !(test
-    (let (: $prf (PlayTogetherIn room2) $tv)
-         (query 40 kb (: $prf (PlayTogetherIn room2) $tv))
-         (let (STV $s $c) $tv
+    (let (: $prf (CntKidIn room2) $cnt)
+         (query 40 kb (: $prf (CntKidIn room2) $cnt))
+         (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
               (and (and (> $s 0.0479) (< $s 0.0481))
                    (and (> $c 0.7499) (< $c 0.7501)))))
     true)

@@ -116,8 +116,10 @@
 !(test
     (let (: $prf (CntKidInParticle roomp1) $tv)
          (query 40 kb (: $prf (CntKidInParticle roomp1) $tv))
-         (DistGreaterThanFormula $tv 1))
-    (STV 0.2 0.1176470588235294))
+         (let (STV $s $c) (DistGreaterThanFormula $tv 1)
+              (and (and (> $s 0.1999) (< $s 0.2001))
+                   (and (> $c 0.11764) (< $c 0.11765)))))
+    true)
 
 !(test
     (let (: $prf (CntKidInParticle roomp2) $tv)
@@ -128,28 +130,32 @@
     true)
 
 !(test
-    (let (: $prf (PlayTogetherParticleIn roomp1) $tv)
-         (query 40 kb (: $prf (PlayTogetherParticleIn roomp1) $tv))
-         (let (STV $s $c) $tv $s))
-    0.2)
+    (let (: $prf (CntKidInParticle roomp1) $cnt)
+         (query 40 kb (: $prf (CntKidInParticle roomp1) $cnt))
+         (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
+              (and (and (> $s 0.1999) (< $s 0.2001))
+                   (and (> $c 0.11764) (< $c 0.11765)))))
+    true)
 
 !(test
-    (let (: $prf (PlayTogetherParticleIn roomp2) $tv)
-         (query 40 kb (: $prf (PlayTogetherParticleIn roomp2) $tv))
-         (let (STV $s $c) $tv
+    (let (: $prf (CntKidInParticle roomp2) $cnt)
+         (query 40 kb (: $prf (CntKidInParticle roomp2) $cnt))
+         (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
               (and (> $s 0.0479) (< $s 0.0481))))
     true)
 
 !(test
-    (let (: $prf (PlayTogetherParticleIn roomp1) $tv)
-         (query 40 kb (: $prf (PlayTogetherParticleIn roomp1) $tv))
-         (let (STV $s $c) $tv (> $c 0.0)))
+    (let (: $prf (CntKidInParticle roomp1) $cnt)
+         (query 40 kb (: $prf (CntKidInParticle roomp1) $cnt))
+         (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
+              (> $c 0.0)))
     true)
 
 !(test
-    (let (: $prf (PlayTogetherParticleIn roomp2) $tv)
-         (query 40 kb (: $prf (PlayTogetherParticleIn roomp2) $tv))
-         (let (STV $s $c) $tv (> $c 0.0)))
+    (let (: $prf (CntKidInParticle roomp2) $cnt)
+         (query 40 kb (: $prf (CntKidInParticle roomp2) $cnt))
+         (let (STV $s $c) (MpFormula (STV 1.0 0.75) (DistGreaterThanFormula $cnt 1))
+              (> $c 0.0)))
     true)
 
 !(test
