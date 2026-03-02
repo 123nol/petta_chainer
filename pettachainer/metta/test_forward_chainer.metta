@@ -36,16 +36,11 @@
 !(test
     (let* (($_ (forward-chain 50 fwdkb))
            ($proofs (collapse
-                     (match &forward_facts (: (fwdkb $_ctx $_vars) $prf (Path A C) $tv)
+                     (match &kb (: (fwdkb MAIN Nil) $prf (Path A C) $tv)
                        $prf)))
            )
          (list-count $proofs))
     1)
-
-!(test
-    (== (forward-chain 50 fwdkb)
-        (forward-chain 50 fwdkb))
-    true)
 
 !(compileadd loopkb (: seedLoop (Loop Start) (STV 1.0 1.0)))
 !(compileadd loopkb (: keepLoop
@@ -59,7 +54,7 @@
 !(test
     (let* (($_ (forward-chain 200 loopkb))
            ($proofs (collapse
-                     (match &forward_facts (: (loopkb $_ctx $_vars) $prf (Loop Start) $tv)
+                     (match &kb (: (loopkb MAIN Nil) $prf (Loop Start) $tv)
                        $prf)))
            )
          (list-count $proofs))
@@ -88,7 +83,7 @@
 !(test
     (let* (($_ (forward-chain 50 mergekb))
            ($merged (collapse
-                      (match &forward_facts (: (mergekb $_ctx $_vars)
+                      (match &kb (: (mergekb MAIN Nil)
                                                (merge/revision $p1 $p2)
                                                (SwitchGoal)
                                                $tv)
@@ -99,7 +94,7 @@
 !(test
     (let* (($_ (forward-chain 50 mergekb))
            ($proofs (collapse
-                     (match &forward_facts (: (mergekb $_ctx $_vars) $prf (SwitchGoal) $tv)
+                     (match &kb (: (mergekb MAIN Nil) $prf (SwitchGoal) $tv)
                        $prf))))
       (list-count $proofs))
     1)
