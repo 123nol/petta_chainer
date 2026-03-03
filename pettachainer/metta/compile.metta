@@ -221,8 +221,12 @@
                               $b
                               $tv)
                            (empty))
-                        ;(if (is-var $na) (empty) (compile-outputs (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
-                        ;(if (is-var $b) (empty) (compile-inputs (: $pb2 $b $btv2))))))
+                        (if (is-var $na)
+                           (empty)
+                           (compile-outputs (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
+                        (if (is-var $b)
+                           (empty)
+                           (compile-inputs (: $pb2 $b $btv2))))))
          (superpose ((() |- ((: ($kb MAIN Nil) $prf $Type $tv)))
                      (compile-outputs (: ($kb MAIN Nil) $prf $Type $tv)))))))
 

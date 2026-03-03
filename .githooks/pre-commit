@@ -24,5 +24,8 @@ if [ ${#existing_files[@]} -eq 0 ]; then
   exit 0
 fi
 
-mettafmt "${existing_files[@]}"
+for f in "${existing_files[@]}"; do
+  mettafmt "$f"
+done
+
 git add -- "${existing_files[@]}"
