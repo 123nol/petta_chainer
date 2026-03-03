@@ -109,13 +109,15 @@
         ((Stats $_sum $_sumsq $count) (pairs-stats $norm)))
       (if (<= $count (particle-budget)) $norm (pairs-resample-systematic $norm (particle-budget)))))
 
-(= (ParticleFromPairs $pairs)
+(= (particle-build-dist $scale $pairs)
    (let*
       (($pid (next-particle-id))
         ($compressed (compress-pairs $pairs))
         ($_clear (particle-remove-id $pid))
         ($_store (particle-store-pairs $pid $compressed)))
-      (ParticleDist $pid 1.0)))
+      (ParticleDist $pid $scale)))
+
+(= (ParticleFromPairs $pairs) (particle-build-dist 1.0 $pairs))
 
 (= (PointMass $x) (ParticleFromPairs (($x 1.0))))
 
@@ -217,22 +219,16 @@
         ($scale (particle-dist-scale $pd))
         ($p (tv-probability $tv))
         ($pairs (particle-fetch-pairs $pid))
-        ($updated (fold-flat (|-> ($acc $item) (natdist-bernoulli-step $acc $p $item)) () $pairs))
-        ($compressed (compress-pairs $updated))
-        ($newid (next-particle-id))
-        ($_store (particle-store-pairs $newid $compressed)))
-      (ParticleDist $newid $scale)))
+        ($updated (fold-flat (|-> ($acc $item) (natdist-bernoulli-step $acc $p $item)) () $pairs)))
+      (particle-build-dist $scale $updated)))
 
 (= (ParticleMap $fun $pd)
    (let*
       (($pid (particle-dist-id $pd))
         ($scale (particle-dist-scale $pd))
         ($pairs (particle-fetch-pairs $pid))
-        ($mapped (particle-map-pairs $fun $pairs ()))
-        ($compressed (compress-pairs $mapped))
-        ($newid (next-particle-id))
-        ($_store (particle-store-pairs $newid $compressed)))
-      (ParticleDist $newid $scale)))
+        ($mapped (particle-map-pairs $fun $pairs ())))
+      (particle-build-dist $scale $mapped)))
 
 (= (ParticleMap2 $fun $pda $pdb)
    (let*
@@ -242,8 +238,5 @@
         ($scaleb (particle-dist-scale $pdb))
         ($pairsa (particle-fetch-pairs $pida))
         ($pairsb (particle-fetch-pairs $pidb))
-        ($mapped (particle-map2-pairs $fun $pairsa $pairsb ()))
-        ($compressed (compress-pairs $mapped))
-        ($newid (next-particle-id))
-        ($_store (particle-store-pairs $newid $compressed)))
-      (ParticleDist $newid (* $scalea $scaleb))))
+        ($mapped (particle-map2-pairs $fun $pairsa $pairsb ())))
+      (particle-build-dist (* $scalea $scaleb) $mapped)))

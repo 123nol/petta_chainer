@@ -100,19 +100,19 @@
                     $alpha
                     $beta)))))))
 
+(= (seen-pair? $stmtid $cid) (not (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ())))
+
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
-   (if (== $cid $stmtid) (empty)
-      (if (not (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ())) (empty)
-         (let $_ (add-atom &kb (ind-seen-pair $stmtid $cid))
-            (if (not (== (shared-objects $args $argsb) ()))
-               (mine-predicate-pair $kb
-                  $pa
-                  $args
-                  $tva
-                  $pb
-                  $argsb
-                  $tvb)
-               (empty))))))
+   (if (or (== $cid $stmtid) (seen-pair? $stmtid $cid)) (empty)
+      (let $_ (add-atom &kb (ind-seen-pair $stmtid $cid))
+         (if (== (shared-objects $args $argsb) ()) (empty)
+            (mine-predicate-pair $kb
+               $pa
+               $args
+               $tva
+               $pb
+               $argsb
+               $tvb)))))
 
 (= (mine-arg-step (minectx $kb $stmtid $pa $args $tva) $arg)
    (let $_

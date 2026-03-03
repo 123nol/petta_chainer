@@ -105,15 +105,17 @@
       (or (resume-cont-has-type? $cont $type) (premises-have-active-type? $rest $cont))
       (premises-have-active-type? $rest $cont)))
 
-(= (has-active-premise? $args $cont) (if (== $cont ()) false (premises-have-active-type? $args $cont)))
+(= (has-active-premise? $args $cont) (premises-have-active-type? $args $cont))
 
 (= (cpu-needs-steps $fun)
-   (or (== $fun FoldAllFormulaCompiled)
-      (or (== $fun FoldAllTVFormulaCompiled)
-         (or (== $fun FoldAllTVPatternFormula)
-            (or (== $fun FoldAllTVRuntimeFormula)
-               (or (== $fun FoldAllValueFormulaCompiled)
-                  (or (== $fun DistAverageFormula) (== $fun Map2DistRuntimeFormula))))))))
+   (is-member $fun
+      (() FoldAllFormulaCompiled
+         FoldAllTVFormulaCompiled
+         FoldAllTVPatternFormula
+         FoldAllTVRuntimeFormula
+         FoldAllValueFormulaCompiled
+         DistAverageFormula
+         Map2DistRuntimeFormula)))
 
 (= (cpu-call $steps $fun $args)
    (let $call (if (cpu-needs-steps $fun) (cons $fun (cons $steps $args)) (cons $fun $args))
