@@ -9,7 +9,6 @@
    (backward-chain-len 3)
    (forward-chain-len 2))
 
-; Step-budgeted queries and multi-path reachability for inference benchmarking.
 !(collapse (query 2 kb (: $prf (BenchTarget demoSmallB 1) $tv)))
 
 !(collapse (query 30 kb (: $prf (BenchTarget demoSmallB 1) $tv)))

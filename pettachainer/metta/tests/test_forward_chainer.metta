@@ -47,10 +47,7 @@
 !(test
    (let*
       (($_ (forward-chain 50 mergekb))
-        ($merged
-           (collapse
-              (match &kb (: (mergekb MAIN Nil) (merge/revision $p1 $p2) (SwitchGoal) $tv)
-                 true))))
+        ($merged (collapse (match &kb (: (mergekb MAIN Nil) (merge/revision $p1 $p2) (SwitchGoal) $tv) true))))
       (== $merged ()))
    true)
 

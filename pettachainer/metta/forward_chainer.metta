@@ -1,6 +1,3 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Forward Chaining Engine ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 !(import_prolog_function nth0)
 
 (= (forward-satisfy-premises $steps () $goal) $goal)
@@ -26,10 +23,6 @@
 
 (= (forward-enqueue-facts () $agenda) $agenda)
 (= (forward-enqueue-facts (cons $fact $tail) $agenda)
-   ;; Forward agenda is best-first: higher-confidence facts are popped first.
-   ;; We use negative confidence as heap priority because get_from_heap pops
-   ;; the smallest priority value.
-   ;; Alpha-equivalent facts are merged with backward-chainer semantics.
    (forward-enqueue-facts $tail (forward-fact-upsert $agenda $fact)))
 
 (= (forward-seed-agenda () $agenda) $agenda)
@@ -49,11 +42,8 @@
    (collapse (match &kb (: ($kb MAIN Nil) $prf $type $tv) (: ($kb MAIN Nil) $prf $type $tv))))
 
 (= (forward-loop $steps $kb $agenda)
-   (if (== (heap_size $agenda) 0)
-      ()
-      ;; $steps is a hard cap on processed agenda items.
-      (if (<= $steps 0)
-         ()
+   (if (== (heap_size $agenda) 0) ()
+      (if (<= $steps 0) ()
          (let*
             (($rest (get_from_heap $agenda $_priority (qitem $_score $fact)))
               ($derived (forward-rule-results $steps $kb $fact))

@@ -36,8 +36,7 @@
 
 !(compileadd kb
    (: foldRule
-      (Implication
-         (Premises (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total))
+      (Implication (Premises (FoldAll (Score $name $n) $n 0 (|-> ($acc $elem) (+ $acc $elem)) -> $total))
          (Conclusions (ScoreTotal $total)))
       (STV 1.0 1.0)))
 
@@ -110,8 +109,6 @@
 
 !(test
    (not
-      (==
-         (is-member (: prf (Count C 3) (STV 1.0 1.0))
-            (collapse (query 10 kb (: prf (Count C $x) $tv))))
+      (== (is-member (: prf (Count C 3) (STV 1.0 1.0)) (collapse (query 10 kb (: prf (Count C $x) $tv))))
          ()))
    true)

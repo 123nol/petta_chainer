@@ -1,6 +1,3 @@
-;;;;;;;;;;;;;;;;;;;;;
-;; Truth Functions ;;
-;;;;;;;;;;;;;;;;;;;;;
 (= (MpFormula (STV $abs $abc) (STV $as $ac)) (STV (* $abs $as) (min $abc $ac)))
 (= (MpFormula (STV $abs $abc) (NatDist $pairs))
    (NatDist (scale-dist-pairs $pairs (tv-probability (STV $abs $abc)))))

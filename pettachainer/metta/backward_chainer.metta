@@ -1,11 +1,6 @@
-;;;;;;;;;
-;; Nat ;;
-;;;;;;;;;
-;; Define Nat
 (: Nat Type)
 (: Z Nat)
 (: S (-> Nat Nat))
-;; Define cast functions between Nat and Number
 (: fromNumber (-> Number Nat))
 (= (fromNumber $n) (if (<= $n 0) Z (S (fromNumber (- $n 1)))))
 
@@ -13,9 +8,6 @@
 (= (fromNat Z) 0)
 (= (fromNat (S $k)) (+ 1 (fromNat $k)))
 
-;;;;;;;;;;;;;;;;;;
-;; Chainer Core ;;
-;;;;;;;;;;;;;;;;;;
 (= (chainer $steps $goal)
    (let*
       (($_rclear (remove-all-atoms &resume_cache))
@@ -61,7 +53,6 @@
         ($score (min $max-score (term-confidence $proof))))
       (candidate-item $score () $proof $cont)))
 
-;; Best-first over partially-applied rule candidates.
 (= (payload-cand $payload) (if (= $payload (resume-cand $_rid $_type $cand)) $cand $payload))
 
 (= (payload-rid $payload) (if (= $payload (resume-cand $rid $_type $_cand)) $rid (nextctx)))
@@ -116,7 +107,6 @@
 
 (= (has-active-premise? $args $cont) (if (== $cont ()) false (premises-have-active-type? $args $cont)))
 
-;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun)
    (or (== $fun FoldAllFormulaCompiled)
       (or (== $fun FoldAllTVFormulaCompiled)
@@ -125,15 +115,10 @@
                (or (== $fun FoldAllValueFormulaCompiled)
                   (or (== $fun DistAverageFormula) (== $fun Map2DistRuntimeFormula))))))))
 
-;; Generic CPU dispatcher used by chainer.
 (= (cpu-call $steps $fun $args)
    (let $call (if (cpu-needs-steps $fun) (cons $fun (cons $steps $args)) (cons $fun $args))
       (reduce (reduce $call))))
 
-;;;;;;;;;;;;;;;;;;
-;; CPU Formulas ;;
-;;;;;;;;;;;;;;;;;;
-;; Runtime fold helper.
 (= (foldall-eval $fun $acc ()) $acc)
 (= (foldall-eval $fun $acc (cons $elem $tail))
    (let*
@@ -147,46 +132,38 @@
 
 (= (inject-compiled-adds $adds) (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
 
-;; Execute a precompiled query plan represented as (goal + adds).
 (= (run-compiled-query $steps $compiled-query)
    (let*
       (((cons (goal $query) $adds) $compiled-query)
         ($_ (inject-compiled-adds $adds)))
       (chainer $steps $query)))
 
-;; FoldAll runtime uses precompiled query, then extracts fold values via pattern match.
 (= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (let $matches
       (collapse (let (: $kbr $prf $pattern $tvin) (run-compiled-query $steps $compiled-query) $value))
       (foldall-eval $fun $init $matches)))
 
-;; Fold over the TV values of all matches in a precompiled query.
 (= (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun)
    (let $matches (extract-proof-tvs (run-compiled-query $steps $compiled-query))
       (foldall-eval $fun $init $matches)))
 
-;; Runtime-compiled TV fold preserving current variable bindings.
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
    (let $kctx (fold-kbctx $kb)
       (let $matches (collapse (match &kb (: $kctx $prf $pattern $ptv) $ptv))
          (foldall-eval $fun $init $matches))))
 
-;; Compute Map2Dist premise outputs from queried distribution TVs.
 (= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
    (let (: $prfa $a $tva) (query $steps $kb (: $prfa $a $tva))
       (let (: $prfb $b $tvb) (query $steps $kb (: $prfb $b $tvb))
          (reduce (DistMap2Formula $fun $tva $tvb)))))
 
-;; Steps parameter kept for uniform CPU call shape.
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun) (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
 
 (= (fold-kbctx $kb) (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
 
-;; Fold over TV values by running the given pattern query under current substitutions.
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
    (let $matches (collapse (let (: $prf $pattern $ptv) (query $steps $kb (: $prf $pattern $ptv)) $ptv))
       (foldall-eval $fun $init $matches)))
 
-;; FoldAllValue runtime kept for compatibility with earlier compiled forms.
 (= (FoldAllValueFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun))

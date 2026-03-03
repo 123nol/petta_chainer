@@ -8,5 +8,4 @@
 
 !(compileadd kb (: prf (Pred B 2) (STV 0.9 1.0)))
 
-;!(match &kb $a $a)
 !(query 1 kb (: $prf (Pred $v #) $tv))

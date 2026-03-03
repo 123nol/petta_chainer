@@ -4,7 +4,6 @@
 
 !(compileadd kb (: rB (Rectangle rectB) (STV 1.0 1.0)))
 
-; Length and width as distribution TVs.
 !(compileadd kb (: lenA (LengthDist rectA) (ParticleFromNormal 10.0 1.0)))
 
 !(compileadd kb (: widA (WidthDist rectA) (ParticleFromNormal 5.0 0.5)))

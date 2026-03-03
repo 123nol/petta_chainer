@@ -26,7 +26,6 @@
 (= (addidx (cons $head $tail) $idx) (cons ($head $idx) (addidx $tail (+ $idx 1))))
 (= (addidx () $idx) ())
 
-; Translate a sequence into the conjunction form used by existing compilation logic.
 (= (seq2expr (cons $head $tail)) (if (== $tail ()) $head (cons And (cons $head $tail))))
 
 (= (compile-outputs (: $kb $NNprf (@ $type (cons $head $tail)) $NNtv))
@@ -79,7 +78,6 @@
          cpu)
       (prem (: $kb $prf $elem $tv) $elem $tv $prf)))
 
-;Helper to match only on the tv of a statement
 (= (tv $tv) (: $kb $prf $elem $tv))
 (= (tv $tv) (CPU $formula $args $tv))
 
@@ -98,13 +96,6 @@
         (($rcclprf $rccltype) ((reverse $cclprf) (reverse $ccltype))))
       ((reverse $resNNprms) |- ((: $kb (cons conjunction $rcclprf) (cons $head $rccltype) $ccltv)))))
 
-;(= (inTemplate $kb $formula $head $tail)
-; (let* (((cons (@ $fst (: $kb $fstprf $fstelem $fsttv)) $rst) (map-flat (in_map $kb) $tail))
-;        ($init (($fst) (: $kb ($fstprf) ($fstelem) $fsttv)))
-;        (($resNNprms (: $kb $cclprf $ccltype $ccltv)) (fold-flat (in_fold $formula) $init $rst))
-;        (($rcclprf $rccltype) ((reverse $cclprf) (reverse $ccltype)))
-;       )
-;     ((reverse $resNNprms) |- ((: $kb (cons conjunction $rcclprf) (cons $head $rccltype) $ccltv)))))
 (= (compile-inputs (: $kb $prf (CPU $f $args $res) $tv))
    ((cons (CPU $f $args $res) ()) |- ((: $kb cpu (CPU $f $args $res) (cpu-premise-tv $f $args $res)))))
 (= (compile-inputs (: $kb $prf (cons $head $tail) $tv))

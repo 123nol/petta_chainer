@@ -92,8 +92,7 @@
 
 !(test
    (match &rules
-      ($id
-         (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $a cat) $tv)
+      ($id (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $a cat) $tv)
          $args)
       ok)
    ok)
@@ -102,12 +101,9 @@
 
 !(test
    (match &rules
-      ($id
-         (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $x cat) $tv)
+      ($id (: (kb MAIN ()) ((mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) $p) (Owns $x cat) $tv)
          $args)
-      (if (is-member (: (kb MAIN ()) $prf (Owns $x dog) $tvin) $args)
-         ok
-         fail))
+      (if (is-member (: (kb MAIN ()) $prf (Owns $x dog) $tvin) $args) ok fail))
    ok)
 
 !(compileadd kb2 (: o1 (Owns alice dog) (STV 1.0 1.0)))
@@ -120,20 +116,13 @@
          (rules
             ($args |-
                (: (kb2 MAIN ())
-                  ((inverted (mined_implication (Owns (V 1) dog) (Owns (V 1) cat))
-                        with
-                        $x1
-                        $x2
-                        $x3
-                        $x4)
-                     $p)
+                  ((inverted (mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) with $x1 $x2 $x3 $x4) $p)
                   (Owns $a dog)
                   $tv)))
          found))
    ())
 
-!(test
-   (pretty (: (mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) (Owns bob cat) (STV 1.0 0.5)))
+!(test (pretty (: (mined_implication (Owns (V 1) dog) (Owns (V 1) cat)) (Owns bob cat) (STV 1.0 0.5)))
    (: (Implication (Premises (Owns (V 1) dog)) (Conclusions (Owns (V 1) cat))) (Owns bob cat) (STV 1.0 0.5)))
 
 !(test

@@ -4,14 +4,12 @@
 
 !(compileadd kb (: group2 (Group g2) (STV 1.0 1.0)))
 
-; Crisp heights as point-mass distribution TVs.
 !(compileadd kb (: hd11 (HeightDist g1 alice) (PointMass 160.0)))
 
 !(compileadd kb (: hd12 (HeightDist g1 bob) (PointMass 170.0)))
 
 !(compileadd kb (: hd13 (HeightDist g1 carol) (PointMass 180.0)))
 
-; Uncertain heights as normal-like distribution TVs.
 !(compileadd kb (: hd21 (HeightDist g2 dan) (ParticleFromNormal 150.0 2.0)))
 
 !(compileadd kb (: hd22 (HeightDist g2 erin) (ParticleFromNormal 170.0 2.0)))

@@ -1,6 +1,3 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Distribution Helpers ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;
 (= (clamp01 $x) (max 0.0 (min 1.0 $x)))
 
 (= (tv-probability $tv) (if (= $tv (STV $s $c)) (clamp01 (* $s $c)) 1.0))

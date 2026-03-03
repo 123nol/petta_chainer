@@ -1,16 +1,12 @@
 !(import! &self petta_chainer)
 
-;; Facts used by competing rules.
 !(compileadd kb (: weakFact (WeakPremise) (STV 1.0 0.1)))
 
 !(compileadd kb (: baseFact (BasePremise) (STV 1.0 1.0)))
 
-;; Rule with higher initial confidence, but two premises.
-;; After proving WeakPremise first, this candidate drops to 0.1.
 !(compileadd kb
    (: ruleHighThenDrop (Implication (Premises (WeakPremise) (BasePremise)) (Conclusions (SwitchGoal))) (STV 1.0 0.9)))
 
-;; Competing rule with lower initial confidence, but stable one-premise path.
 !(compileadd kb
    (: ruleStable (Implication (Premises (BasePremise)) (Conclusions (SwitchGoal))) (STV 1.0 0.7)))
 

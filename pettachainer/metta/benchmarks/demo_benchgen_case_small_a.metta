@@ -9,7 +9,6 @@
    (backward-chain-len 3)
    (forward-chain-len 2))
 
-; Query-focused benchmark check: target is reachable only at sufficient step budget.
 !(collapse (query 2 kb (: $prf (BenchTarget demoSmallA 1) $tv)))
 
 !(let*

@@ -18,9 +18,6 @@
 !(import! &self dist_formulas)
 !(import! &self tv_formulas)
 
-;;;;;;;;;;;
-;; API   ;;
-;;;;;;;;;;;
 (= (nextid)
    (let $mn (catch (get-state ruleid))
       (let $n (if-error $mn 0 $mn) (progn (change-state! ruleid (+ $n 1)) $n))))
@@ -48,7 +45,6 @@
       (superpose
          $atoms)))
 
-;; Compile query to goal+adds, inject adds, then run goal through chainer.
 (= (query $steps $kb $stmt)
    (let*
       (((cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt)))
