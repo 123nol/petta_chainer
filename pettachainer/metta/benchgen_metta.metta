@@ -432,26 +432,6 @@
          $backward-chain-len
          $forward-chain-len)))
 
-(=
-   (BenchGenerateInvoke $bench
-      $depth
-      $width
-      $paths
-      $noise-factor
-      $backward-ratio
-      $backward-chain-len
-      $forward-chain-len
-      $print-before-compile)
-   (BenchGenerateCore $bench
-      $depth
-      $width
-      $paths
-      $noise-factor
-      $backward-ratio
-      $backward-chain-len
-      $forward-chain-len
-      $print-before-compile))
-
 (= (BenchWidthArg (width $width)) $width)
 (= (BenchWidthArg (widht $width)) $width)
 
@@ -465,7 +445,7 @@
       (backward-chain-len $backward-chain-len)
       (forward-chain-len $forward-chain-len))
    (let $width (BenchWidthArg $width-arg)
-      (BenchGenerateInvoke $bench
+      (BenchGenerateCore $bench
          $depth
          $width
          $paths
@@ -486,7 +466,7 @@
       (forward-chain-len $forward-chain-len)
       (print $print-before-compile))
    (let $width (BenchWidthArg $width-arg)
-      (BenchGenerateInvoke $bench
+      (BenchGenerateCore $bench
          $depth
          $width
          $paths
