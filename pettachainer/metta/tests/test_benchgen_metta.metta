@@ -18,6 +18,8 @@
 
 !(test (BenchTargetProved? benchCore 1 60) true)
 
+!(test (not (== (BenchPLNKB benchCore) ())) true)
+
 ; Factor semantics: noise statements = noise-factor * true statements.
 ; true statements for depth=2,width=2,paths=1 => 4 + 3 = 7.
 !(BenchGenerate benchNoiseMix
@@ -50,10 +52,7 @@
 
 !(test
    (==
-      (collapse
-         (query 100
-            kb
-            (: (bench-noise-back-head benchNoiseMix 1) (BenchTarget benchNoiseMix 1) $tv)))
+      (collapse (query 100 kb (: (bench-noise-back-head benchNoiseMix 1) (BenchTarget benchNoiseMix 1) $tv)))
       ())
    true)
 
