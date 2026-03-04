@@ -13,30 +13,11 @@ Both modes evaluate:
 (DistGreaterThanFormula (fold-flat ... ) threshold)
 ```
 
-`forward_backward_compare.py` benchmarks three inference workflows on the same synthetic chain KB:
-
-- `forward`: run `forward-chain` and test if target was derived
-- `forward_then_backward`: run `forward-chain` then run a backward `query`
-- `backward`: run only backward `query`
-
 ## Run
 
 ```bash
 python pettachainer/benchmarks/particle_vs_nat.py --sizes 100,500,1000 --particle-budgets 128,256,512 --repeats 2
 ```
-
-```bash
-python pettachainer/benchmarks/forward_backward_compare.py --chain-len 10 --noise-chains 10 --noise-chain-len 2 --repeats 3
-```
-
-### Forward/Backward Output Columns
-
-- `mode`: one of `forward`, `forward_then_backward`, `backward`
-- `mean_s`: mean runtime over repeats
-- `median_s`: median runtime over repeats
-- `min_s`: fastest run
-- `max_s`: slowest run
-- `success_rate`: fraction of successful runs (target proved)
 
 ## Output Columns
 
@@ -58,4 +39,17 @@ Run the deep-proof-tree tunable benchmark variant in-place:
 
 ```bash
 python pettachainer/metta/benchmarks/bench_tuffy_scale.py --pairs 4,8 --runs 2 --variant deep-proof-tree --deep-depth 4 --deep-branching 2
+```
+
+## MeTTa Forward/Backward Compare
+
+Run the fully MeTTa benchmark that uses `benchgen_metta` and reports three modes:
+
+- `forward`
+- `forward_then_backward`
+- `backward`
+
+```bash
+cd pettachainer/metta
+petta benchmarks/demo_benchgen_forward_backward_compare.metta
 ```
