@@ -12,9 +12,7 @@
 (= (shared-objects () $argsb) ())
 (= (shared-objects (cons $h $t) $argsb)
    (let $rst (shared-objects $t $argsb)
-      (if (and (is-member $h $argsb) (not (is-member $h $rst)))
-         (cons $h $rst)
-         $rst)))
+      (if (and (is-member $h $argsb) (not (is-member $h $rst))) (cons $h $rst) $rst)))
 
 (= (index-of-arg $arg () $idx) 0)
 (= (index-of-arg $arg (cons $h $t) $idx) (if (== $arg $h) $idx (index-of-arg $arg $t (+ $idx 1))))
@@ -33,34 +31,32 @@
 
 (= (rewrite-v-step $expr ($accum $assoc))
    (if (= $expr (V $n))
-      (let ($v $nassoc)
-         (case (get_assoc $n $assoc) (
-              ($a ($a $assoc))
-              (Empty ($v (put_assoc $n $assoc $v)))))
+      (let ($v $nassoc) (case (get_assoc $n $assoc) (($a ($a $assoc)) (Empty ($v (put_assoc $n $assoc $v)))))
          ((cons $v $accum) $nassoc))
       (if (is-expr $expr)
-         (let ($nacc $nassoc) (foldr-flat rewrite-v-step (() $assoc) $expr)
-            ((cons $nacc $accum) $nassoc))
+         (let ($nacc $nassoc) (foldr-flat rewrite-v-step (() $assoc) $expr) ((cons $nacc $accum) $nassoc))
          ((cons $expr $accum) $assoc))))
 
 (= (clear-mined-implication-rules $kb $premk $conck)
    (let $_
       (collapse
-         (match &kb
-            (rules
-               ($args |- (: ($kb MAIN ()) ((mined_implication $premk $conck) $p) $type $tv)))
-            (remove-atom &kb
+         (match (kbspace) (rules ($args |- ($type ($kb MAIN ()) ((mined_implication $premk $conck) $p) $tv)))
+            (remove-atom (kbspace)
                (rules
-                  ($args |- (: ($kb MAIN ()) ((mined_implication $premk $conck) $p) $type $tv))))))
+                  ($args |- ($type ($kb MAIN ()) ((mined_implication $premk $conck) $p) $tv))))))
       (collapse
-         (match &kb
+         (match (kbspace)
             (rules
                ($args |-
-                  (: ($kb MAIN ()) ((inverted (mined_implication $premk $conck) with $x1 $x2 $x3 $x4) $p) $type $tv)))
-            (remove-atom &kb
+                  ($type ($kb MAIN ())
+                     ((inverted (mined_implication $premk $conck) with $x1 $x2 $x3 $x4) $p)
+                     $tv)))
+            (remove-atom (kbspace)
                (rules
                   ($args |-
-                     (: ($kb MAIN ()) ((inverted (mined_implication $premk $conck) with $x1 $x2 $x3 $x4) $p) $type $tv))))))))
+                     ($type ($kb MAIN ())
+                        ((inverted (mined_implication $premk $conck) with $x1 $x2 $x3 $x4) $p)
+                        $tv))))))))
 
 (= (emit-mined-implication $kb $premk $conck $alpha $beta)
    (let ($prem $conc) (fst (foldr-flat rewrite-v-step (() (empty_assoc)) ($premk $conck)))
@@ -80,9 +76,7 @@
         ($binc (* $w (* $sa (- 1.0 $sb))))
         ($m
            (collapse
-              (once
-                 (match &mining_stats (ind-impl-stats $kb $premk $conck $olda $oldb)
-                    (ab $olda $oldb)))))
+              (once (match &mining_stats (ind-impl-stats $kb $premk $conck $olda $oldb) (ab $olda $oldb)))))
         ($cur (if (== $m ()) (ab 0.0 0.0) (car-atom $m)))
         ((ab $olda $oldb) $cur)
         ($newa (+ $olda $ainc))
@@ -98,30 +92,15 @@
    (let*
       (((terms $premab $concab) (generalized-terms-key $pa $argsa $pb $argsb))
         ((terms $premba $concba) (generalized-terms-key $pb $argsb $pa $argsa)))
-      (if (and (== $premab $concab) (== $premba $concba))
-         (empty)
+      (if (and (== $premab $concab) (== $premba $concba)) (empty)
          (superpose (
-              (let (ab $alpha $beta)
-                 (update-directional-by-key $kb
-                    $premab
-                    $concab
-                    $sa
-                    $ca
-                    $sb
-                    $cb)
+              (let (ab $alpha $beta) (update-directional-by-key $kb $premab $concab $sa $ca $sb $cb)
                  (emit-mined-implication $kb
                     $premab
                     $concab
                     $alpha
                     $beta))
-              (let (ab $alpha $beta)
-                 (update-directional-by-key $kb
-                    $premba
-                    $concba
-                    $sb
-                    $cb
-                    $sa
-                    $ca)
+              (let (ab $alpha $beta) (update-directional-by-key $kb $premba $concba $sb $cb $sa $ca)
                  (emit-mined-implication $kb
                     $premba
                     $concba
@@ -129,11 +108,9 @@
                     $beta)))))))
 
 (= (mine-candidate $kb $stmtid $pa $args $tva $cid $pb $argsb $tvb)
-   (if (== $cid $stmtid)
-      (empty)
-      (if (not (== (collapse (once (match &kb (ind-seen-pair $stmtid $cid) ok))) ()))
-         (empty)
-         (let $_ (add-atom &kb (ind-seen-pair $stmtid $cid))
+   (if (== $cid $stmtid) (empty)
+      (if (not (== (collapse (once (match (kbspace) (ind-seen-pair $stmtid $cid) ok))) ())) (empty)
+         (let $_ (add-atom (kbspace) (ind-seen-pair $stmtid $cid))
             (if (not (== (shared-objects $args $argsb) ()))
                (mine-predicate-pair $kb
                   $pa
@@ -172,8 +149,7 @@
          $tv)))
 
 (= (process-on-add $kb (: $prf $type $tv))
-   (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions)))
-      ()
+   (if (= $type (Implication (cons Premises $premises) (cons Conclusions $conclusions))) ()
       (if (and (and (not (is-expr $prf)) (is-expr $type)) (= $tv (STV $s $c)))
          (let*
             (($pa (car-atom $type))
@@ -181,7 +157,7 @@
             (superpose (
                  (let $_ (foldl-atom $args (minectx $kb $prf $pa $args $tv) mine-arg-step)
                     (collapse
-                       (match &kb (ind-seen-pair $prf $cid)
-                          (remove-atom &kb (ind-seen-pair $prf $cid)))))
+                       (match (kbspace) (ind-seen-pair $prf $cid)
+                          (remove-atom (kbspace) (ind-seen-pair $prf $cid)))))
                  (foldl-atom $args (idxctx $kb $prf $pa $args $tv) index-arg-step))))
          ())))

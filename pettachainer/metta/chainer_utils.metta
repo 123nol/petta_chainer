@@ -21,8 +21,9 @@
 ;; Unified confidence extraction for both expected and concrete terms.
 (= (term-confidence $term)
    (case $term (
-        ((CPU $fun $args $res) (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res)))
-        ((: $_kb $_prf $_type $tv) (tv-confidence $tv))
+        ((CPU $fun $args -> $res)
+           (if (is-var $res) (cpu-expected-confidence $fun $args) (tv-confidence $res)))
+        (($_type ($_kbid $_ctx $_vars) $_prf $tv) (tv-confidence $tv))
         ($other 1.0))))
 
 (= (premises-expected-confidence ()) 1.0)
@@ -30,7 +31,8 @@
    (min (term-confidence $prem) (premises-expected-confidence $rest)))
 
 ;; Goal typing and alpha-equivalence helpers.
-(= (goal-type-key $goal) (if (proof-atom? $goal) (let (: $_kb $_prf $type $_tv) $goal $type) $goal))
+(= (goal-type-key $goal)
+   (if (proof-atom? $goal) (let ($type ($_kbid $_ctx $_vars) $_prf $_tv) $goal $type) $goal))
 
 (= (same-alpha-type? $a $b)
    (let*
@@ -57,10 +59,13 @@
       (STV $m $conf)))
 
 ;; Revision adapter for merging two proof atoms with alpha-equivalent types.
-(= (RevisionMergeProof (: $kb $prf1 $type1 $tv1) (: $_kb2 $prf2 $_type2 $tv2))
-   (: $kb (merge/revision $prf1 $prf2) $type1 (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2))) (mergetvs $tv1 $tv2) $tv1)))
+(= (RevisionMergeProof ($type1 ($kbid $_ctx $_vars) $prf1 $tv1) ($_type2 ($kbid $_ctx2 $_vars2) $prf2 $tv2))
+   ($type1 ($kbid $_ctx $_vars)
+      (merge/revision $prf1 $prf2)
+      (if (and (= $tv1 (STV $_m1 $_c1)) (= $tv2 (STV $_m2 $_c2))) (mergetvs $tv1 $tv2) $tv1)))
 
-(= (proof-atom? $term) (if (and (not (is-var $term)) (= $term (: $_kb $_prf $_type $_tv))) true false))
+(= (proof-atom? $term)
+   (if (and (not (is-var $term)) (= $term ($_type ($_kbid $_ctx $_vars) $_prf $_tv))) true false))
 
 (= (proof-tree-contains-list () $needle) false)
 (= (proof-tree-contains-list (cons $head $tail) $needle)
@@ -85,7 +90,7 @@
    (list-append (proof-term-evidence-list $head) (proof-term-evidence-list-args $tail)))
 
 (= (proof-atom-evidence-set $proof)
-   (if (= $proof (: $_kb $prf $_type $_tv)) (list_to_set (proof-term-evidence-list $prf)) ()))
+   (if (= $proof ($_type ($_kbid $_ctx $_vars) $prf $_tv)) (list_to_set (proof-term-evidence-list $prf)) ()))
 
 (= (evidence-sets-overlap? () $set-b) false)
 (= (evidence-sets-overlap? (cons $head $tail) $set-b)
@@ -94,8 +99,8 @@
 (= (merge-proof-atoms $proof-a $proof-b)
    (if (== $proof-a $proof-b) $proof-a
       (if (and (proof-atom? $proof-a) (proof-atom? $proof-b))
-         (let (: $_kba $prfa $_ta $_tva) $proof-a
-            (let (: $_kbb $prfb $_tb $_tvb) $proof-b
+         (let ($_ta ($_kbid $_ctxa $_varsa) $prfa $_tva) $proof-a
+            (let ($_tb ($_kbid $_ctxb $_varsb) $prfb $_tvb) $proof-b
                (if (and (merge-proof-term? $prfa) (proof-tree-contains $prfa $prfb)) $proof-a
                   (if (and (merge-proof-term? $prfb) (proof-tree-contains $prfb $prfa)) $proof-b
                      (let*
@@ -132,7 +137,7 @@
            ($nrest (heap-drop-resume-cand $rest $rid $proof))
            ($drop?
               (case $payload (
-                   ((resume-cand $rid $rtype $_cand) (same-alpha-type? $rtype $proof))
+                   ((resume-cand $rid $rtype $_cand) (== $rtype (goal-type-key $proof)))
                    ($_p false)))))
          (if $drop? $nrest (add_to_heap $nrest $priority (qitem $score $payload))))))
 
@@ -140,9 +145,7 @@
 (= (resume-cache-upsert $rcache $rid $proof)
    (let*
       (($hits
-           (collapse
-              (match $rcache (rmerge $rid $old-proof)
-                 (if (same-alpha-type? $old-proof $proof) $old-proof (empty)))))
+           (collapse (match $rcache (rmerge $rid $old-proof) (if (== $old-proof $proof) $old-proof (empty)))))
         ($had-hit (not (== $hits ())))
         ($_
            (fold-flat (|-> ($acc $old-proof) (progn (remove-atom $rcache (rmerge $rid $old-proof)) $acc))
@@ -163,6 +166,8 @@
       $rest-cont)
    (let*
       (((resume-cache-result $merged-proof $had-hit) (resume-cache-upsert $rcache $rid $proved-goal))
+        ($_t0 ($rid $proved-goal $goal))
+        ($_t1 ($rid $merged-proof $had-hit))
         ($_u (= $prem $merged-proof))
         ($new-score (min $parent-score (term-confidence $merged-proof)))
         ($clean-pq (if $had-hit (heap-drop-resume-cand $pq $rid $proved-goal) $pq))

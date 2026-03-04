@@ -229,7 +229,7 @@ For dist-vs-dist comparisons, confidence is the minimum of both sides.
 
 - `(ParticleStoreCount)` -> number of stored `(particle id x w)` atoms
 - `(ParticleStoreClear)` -> clears store and resets particle id counter
-- `(ParticleStorePruneKB)` -> keeps only particle ids reachable from current `&kb` facts
+- `(ParticleStorePruneKB)` -> keeps only particle ids reachable from current `(kbspace)` facts
 
 ## End-to-End Example
 

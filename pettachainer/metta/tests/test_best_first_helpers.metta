@@ -6,21 +6,21 @@
 !(test (tv-confidence maybeUnknown) 1.0)
 
 ;; Premise confidence extraction from compiled CPU truth formulas.
-!(test (term-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) $out)) 0.6)
+!(test (term-confidence (CPU MpFormula ((STV 1.0 0.6) (STV 0.8 0.9)) -> $out)) 0.6)
 
-!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
+!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) -> $out)) 0.4)
 
-!(test (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.7)
+!(test (term-confidence (CPU OrFormula ((STV 0.8 0.4) (STV 0.9 0.7)) -> $out)) 0.7)
 
-!(test (term-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $out)) 0.4)
+!(test (term-confidence (CPU LikelierThanFormula ((STV 0.8 0.4) (STV 0.9 0.7)) -> $out)) 0.4)
 
-!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) $res)) 0.4)
+!(test (term-confidence (CPU AndFormula ((STV 0.8 0.4) (STV 0.9 0.7)) -> $res)) 0.4)
 
 ;; Nested premise list confidence (min over expected premise confidences).
 !(test
    (premises-expected-confidence
-      (cons (CPU MpFormula ((STV 1.0 0.2) (STV 1.0 1.0)) $tv1)
-         (cons (CPU MpFormula ((STV 1.0 0.55) $tv1) $tv2) ())))
+      (cons (CPU MpFormula ((STV 1.0 0.2) (STV 1.0 1.0)) -> $tv1)
+         (cons (CPU MpFormula ((STV 1.0 0.55) $tv1) -> $tv2) ())))
    0.2)
 
 ;; Heap queue ordering and duplicate retention.
@@ -50,33 +50,33 @@
    (cons 0 (resumedGoal)))
 
 !(test
-   (has-active-premise? (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())
-      (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+   (has-active-premise? (cons ((LoopGoal) (kb MAIN ()) pPrem (STV 1.0 1.0)) ())
+      (cons (resume ridX premX restX ((LoopGoal) (kb MAIN ()) pCont (STV 1.0 1.0)) 1.0) ()))
    true)
 
 !(test
-   (has-active-premise? (cons (: (kb MAIN ()) pPrem (OtherGoal) (STV 1.0 1.0)) ())
-      (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+   (has-active-premise? (cons ((OtherGoal) (kb MAIN ()) pPrem (STV 1.0 1.0)) ())
+      (cons (resume ridX premX restX ((LoopGoal) (kb MAIN ()) pCont (STV 1.0 1.0)) 1.0) ()))
    false)
 
 ;; Alpha-equivalent goals should count as active overlap.
 !(test
-   (has-active-premise? (cons (: (kb MAIN ()) pPrem (LoopGoal $x) (STV 1.0 1.0)) ())
-      (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal $y) (STV 1.0 1.0)) 1.0) ()))
+   (has-active-premise? (cons ((LoopGoal $x) (kb MAIN ()) pPrem (STV 1.0 1.0)) ())
+      (cons (resume ridX premX restX ((LoopGoal $y) (kb MAIN ()) pCont (STV 1.0 1.0)) 1.0) ()))
    true)
 
 ;; Non-goal premises are ignored while typed goals are extracted.
 !(test
    (premise-goal-keys
-      (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
-         (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ())))
+      (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) -> $tmp)
+         (cons ((LoopGoal) (kb MAIN ()) pPrem (STV 1.0 1.0)) ())))
    ((LoopGoal)))
 
 !(test
    (has-active-premise?
-      (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) $tmp)
-         (cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ()))
-      (cons (resume ridX premX restX (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0)) 1.0) ()))
+      (cons (CPU AndFormula ((STV 1.0 0.9) (STV 1.0 0.8)) -> $tmp)
+         (cons ((LoopGoal) (kb MAIN ()) pPrem (STV 1.0 1.0)) ()))
+      (cons (resume ridX premX restX ((LoopGoal) (kb MAIN ()) pCont (STV 1.0 1.0)) 1.0) ()))
    true)
 
 !(test
@@ -87,26 +87,20 @@
          (state-enqueue-item (state (empty_heap) &resume_cache &goal_cache)
             (qitem 0.9
                (cand
-                  ((cons (: (kb MAIN ()) pPrem (LoopGoal) (STV 1.0 1.0)) ()) |-
-                     (: (kb MAIN ()) pGoal (CurrentGoal) (STV 1.0 1.0)))
-                  (cons
-                     (resume ridX
-                        premX
-                        restX
-                        (: (kb MAIN ()) pCont (LoopGoal) (STV 1.0 1.0))
-                        1.0)
-                     ()))))
+                  ((cons ((LoopGoal) (kb MAIN ()) pPrem (STV 1.0 1.0)) ()) |-
+                     ((CurrentGoal) (kb MAIN ()) pGoal (STV 1.0 1.0)))
+                  (cons (resume ridX premX restX ((LoopGoal) (kb MAIN ()) pCont (STV 1.0 1.0)) 1.0) ()))))
          (heap_size $pq)))
    0)
 
 ;; Overlapping evidence sets should not revision-merge.
 !(test
-   (merge-proof-atoms (: (kb MAIN ()) (ruleA sharedFact) (Goal) (STV 1.0 0.6))
-      (: (kb MAIN ()) (ruleB sharedFact) (Goal) (STV 1.0 0.8)))
-   (: (kb MAIN ()) (ruleB sharedFact) (Goal) (STV 1.0 0.8)))
+   (merge-proof-atoms ((Goal) (kb MAIN ()) (ruleA sharedFact) (STV 1.0 0.6))
+      ((Goal) (kb MAIN ()) (ruleB sharedFact) (STV 1.0 0.8)))
+   ((Goal) (kb MAIN ()) (ruleB sharedFact) (STV 1.0 0.8)))
 
 ;; Disjoint evidence sets should still revision-merge.
 !(test
-   (merge-proof-atoms (: (kb MAIN ()) (ruleA factA) (Goal) (STV 1.0 0.6))
-      (: (kb MAIN ()) (ruleB factB) (Goal) (STV 1.0 0.8)))
-   (: (kb MAIN ()) (merge/revision (ruleB factB) (ruleA factA)) (Goal) (STV 1.0 0.8461538461538461)))
+   (merge-proof-atoms ((Goal) (kb MAIN ()) (ruleA factA) (STV 1.0 0.6))
+      ((Goal) (kb MAIN ()) (ruleB factB) (STV 1.0 0.8)))
+   ((Goal) (kb MAIN ()) (merge/revision (ruleB factB) (ruleA factA)) (STV 1.0 0.8461538461538461)))

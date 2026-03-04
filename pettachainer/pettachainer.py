@@ -83,7 +83,7 @@ class PeTTaChainer:
         return str(_first_result(evaluated)).strip()
 
     def print_kb(self):
-        atoms = self.handler.process_metta_string(f"!(match &kb $a (pretty $a))")
+        atoms = self.handler.process_metta_string(f"!(match (kbspace) $a (pretty $a))")
         for atom in _as_list(atoms):
             print(atom)
 

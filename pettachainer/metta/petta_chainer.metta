@@ -18,6 +18,8 @@
 !(import! &self dist_formulas)
 !(import! &self tv_formulas)
 
+(= (kbspace) &kb)
+
 ;;;;;;;;;;;
 ;; API   ;;
 ;;;;;;;;;;;
@@ -36,7 +38,7 @@
            ($_2 (add-atom &ccls_index ($ccls $id)))
            ($_3 (add-atom &rules ($id $ccls $args))))
          ())
-      (add-atom &kb $expr)))
+      (add-atom (kbspace) $expr)))
 
 (= (compileadd-add-all $acc $atom) (progn (add-to-kb $atom) $acc))
 

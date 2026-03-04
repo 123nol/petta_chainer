@@ -43,7 +43,7 @@
       (($keep
            (list_to_set
               (collapse
-                 (match &kb (: $_kb $_prf $_type $tv)
+                 (match (kbspace) ($_type ($_kbid $_ctx $_vars) $_prf $tv)
                     (if (= $tv (ParticleDist $pid $scale)) $pid (if (= $tv (ParticleDist $pid)) $pid (empty)))))))
         ($atoms (collapse (match &particle_store (particle $pid $x $w) ($pid $x $w))))
         ($_pruned

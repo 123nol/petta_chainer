@@ -52,12 +52,12 @@
 (= (direct-goal-items $steps $max-score $cont $goal)
    (let*
       (($proof
-           (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
-              (let (: $kb $prf $type $tv) $goal
+           (if (= $goal (CPU $fun $args -> $_res)) (CPU $fun $args -> (cpu-call $steps $fun $args))
+              (let ($type ($kbid $kctx $kvars) $_gprf $_gtv) $goal
                  (let $utype
                     (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
-                    (match &kb (: $kb $prf $utype $tv)
-                       (: $kb $prf $type $tv))))))
+                    (match (kbspace) ($utype ($kbid $kctx $kvars) $mprf $mtv)
+                       ($utype ($kbid $kctx $kvars) $mprf $mtv))))))
         ($score (min $max-score (term-confidence $proof))))
       (candidate-item $score () $proof $cont)))
 
@@ -102,19 +102,18 @@
 (= (state-enqueue-item (state $pq $rcache $gcache) (qitem $prio $payload))
    (state-enqueue-cand (state $pq $rcache $gcache) $prio $payload (payload-cand $payload)))
 
-(= (resume-cont-has-type? () $type) false)
-(=
-   (resume-cont-has-type? (cons (resume $_rid $_prem $_rest (: $_kb $_prf $goal-type $_tv) $_score) $tail)
-      $type)
-   (or (=alpha $goal-type $type) (resume-cont-has-type? $tail $type)))
+(= (premise-goal-keys ()) ())
+(= (premise-goal-keys (cons $prem $rest))
+   (if (= $prem ($type ($_kbid $_ctx $_vars) $_prf $_tv)) (cons $type (premise-goal-keys $rest))
+      (premise-goal-keys $rest)))
 
-(= (premises-have-active-type? () $cont) false)
-(= (premises-have-active-type? (cons $prem $rest) $cont)
-   (if (= $prem (: $_kb $_prf $type $_tv))
-      (or (resume-cont-has-type? $cont $type) (premises-have-active-type? $rest $cont))
-      (premises-have-active-type? $rest $cont)))
-
-(= (has-active-premise? $args $cont) (if (== $cont ()) false (premises-have-active-type? $args $cont)))
+(= (has-active-premise? $args $cont)
+   (let*
+      (($prem-keys (premise-goal-keys $args))
+        ($cont-keys
+           (map-flat (|-> ((resume $_rid $_prem $_r ($type ($_kbid $_ctx $_vars) $_prf $_tv) $_ps)) $type)
+              $cont)))
+      (not (== (/=a\ $prem-keys $cont-keys) ()))))
 
 ;; CPU functions that need the current step budget as first argument.
 (= (cpu-needs-steps $fun)
@@ -142,10 +141,12 @@
       (foldall-eval $fun $nacc $tail)))
 
 (= (extract-proof-tvs ()) ())
-(= (extract-proof-tvs (cons (: $_kb $_prf $_type $tv) $tail)) (cons $tv (extract-proof-tvs $tail)))
+(= (extract-proof-tvs (cons ($_type ($_kbid $_ctx $_vars) $_prf $tv) $tail))
+   (cons $tv (extract-proof-tvs $tail)))
 (= (extract-proof-tvs (cons $_head $tail)) (extract-proof-tvs $tail))
 
-(= (inject-compiled-adds $adds) (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom &kb $sadds))))
+(= (inject-compiled-adds $adds)
+   (if (= $adds ()) $_ (let $sadds (superpose $adds) (add-atom (kbspace) $sadds))))
 
 ;; Execute a precompiled query plan represented as (goal + adds).
 (= (run-compiled-query $steps $compiled-query)
@@ -157,7 +158,8 @@
 ;; FoldAll runtime uses precompiled query, then extracts fold values via pattern match.
 (= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (let $matches
-      (collapse (let (: $kbr $prf $pattern $tvin) (run-compiled-query $steps $compiled-query) $value))
+      (collapse
+         (let ($pattern ($_kbid $_ctx $_vars) $prf $tvin) (run-compiled-query $steps $compiled-query) $value))
       (foldall-eval $fun $init $matches)))
 
 ;; Fold over the TV values of all matches in a precompiled query.
@@ -168,7 +170,7 @@
 ;; Runtime-compiled TV fold preserving current variable bindings.
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
    (let $kctx (fold-kbctx $kb)
-      (let $matches (collapse (match &kb (: $kctx $prf $pattern $ptv) $ptv))
+      (let $matches (collapse (match (kbspace) ($pattern $kctx $prf $ptv) $ptv))
          (foldall-eval $fun $init $matches))))
 
 ;; Compute Map2Dist premise outputs from queried distribution TVs.

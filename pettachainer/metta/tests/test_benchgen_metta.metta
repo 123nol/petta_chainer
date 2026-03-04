@@ -44,8 +44,10 @@
    (not
       (==
          (collapse
-            (match &kb
-               (: (kb MAIN Nil) (bench-noise-back-meta benchNoiseMix 1 0) (BenchNoiseBackRule benchNoiseMix 1 0) (STV 1.0 1.0))
+            (match (kbspace)
+               ((BenchNoiseBackRule benchNoiseMix 1 0) (kb MAIN Nil)
+                  (bench-noise-back-meta benchNoiseMix 1 0)
+                  (STV 1.0 1.0))
                yes))
          ()))
    true)

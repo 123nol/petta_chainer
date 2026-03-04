@@ -517,28 +517,32 @@
 (= (BenchMainRuleCount $bench)
    (BenchListCount
       (collapse
-         (match &kb
-            (: $_kb (bench-main-meta $bench $_path $_level $_idx) (BenchMainRule $bench $_path $_level $_idx $_width) $_tv)
+         (match (kbspace)
+            ((BenchMainRule $bench $_path $_level $_idx $_width) $_kb
+               (bench-main-meta $bench $_path $_level $_idx)
+               $_tv)
             ok))))
 
 (= (BenchBaseFactCount $bench)
    (BenchListCount
       (collapse
-         (match &kb (: $_kb (bench-base-fact $bench $_path $_idx) (BenchFact $bench $_path $_idx) $_tv)
+         (match (kbspace) ((BenchFact $bench $_path $_idx) $_kb (bench-base-fact $bench $_path $_idx) $_tv)
             ok))))
 
 (= (BenchNoiseBackwardRuleCount $bench)
    (BenchListCount
       (collapse
-         (match &kb
-            (: $_kb (bench-noise-back-meta $bench $_idx $_step) (BenchNoiseBackRule $bench $_idx $_step) $_tv)
+         (match (kbspace)
+            ((BenchNoiseBackRule $bench $_idx $_step) $_kb (bench-noise-back-meta $bench $_idx $_step) $_tv)
             ok))))
 
 (= (BenchNoiseForwardRuleCount $bench)
    (BenchListCount
       (collapse
-         (match &kb
-            (: $_kb (bench-noise-forward-meta $bench $_idx $_step) (BenchNoiseForwardRule $bench $_idx $_step) $_tv)
+         (match (kbspace)
+            ((BenchNoiseForwardRule $bench $_idx $_step) $_kb
+               (bench-noise-forward-meta $bench $_idx $_step)
+               $_tv)
             ok))))
 
 (= (BenchTargetProved? $bench $path $steps)
@@ -550,13 +554,15 @@
 (= (BenchPLNDepth $bench)
    (car-atom
       (collapse
-         (match &kb
-            (: $_kb (bench-spec $bench) (BenchSpec $bench $depth $_width $_paths $_noise $_backward $_backward-len $_forward-len) $_tv)
+         (match (kbspace)
+            ((BenchSpec $bench $depth $_width $_paths $_noise $_backward $_backward-len $_forward-len) $_kb
+               (bench-spec $bench)
+               $_tv)
             $depth))))
 
 (= (BenchPLNBaseAtoms $bench)
    (collapse
-      (match &kb (: $_kb (bench-base-fact $bench $path $idx) $type $tv)
+      (match (kbspace) ($type ($_kbid $_ctx $_vars) (bench-base-fact $bench $path $idx) $tv)
          (: (bench-base-fact $bench $path $idx) $type $tv))))
 
 (= (BenchFirstOr $list $default) (if (== $list ()) $default (car-atom $list)))
@@ -564,15 +570,19 @@
 (= (BenchMainConfValue $bench $path $level $idx)
    (BenchFirstOr
       (collapse
-         (match &kb
-            (: $_kb (bench-main-conf $bench $path $level $idx) (BenchMainConf $bench $path $level $idx $conf) $_tv)
+         (match (kbspace)
+            ((BenchMainConf $bench $path $level $idx $conf) $_kb
+               (bench-main-conf $bench $path $level $idx)
+               $_tv)
             $conf))
       1.0))
 
 (= (BenchPLNMainRuleAtoms $bench)
    (collapse
-      (match &kb
-         (: $_kb (bench-main-meta $bench $path $level $idx) (BenchMainRule $bench $path $level $idx $width) $_meta-tv)
+      (match (kbspace)
+         ((BenchMainRule $bench $path $level $idx $width) $_kb
+            (bench-main-meta $bench $path $level $idx)
+            $_meta-tv)
          (let*
             (($depth (BenchPLNDepth $bench))
               ($premises (BenchRulePremises $bench $path $level $idx $width))
