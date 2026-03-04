@@ -27,7 +27,7 @@
                             (collapse
                                (match &kb (: ($kbid MAIN Nil) $prf $ptype $tv)
                                   (: ($kbid MAIN Nil) $prf $ptype $tv))))
-                         ($nagenda (fold-flat agenda-push-fact $agenda $matches))
+                         ($nagenda (fold-flat agenda-push-fact-unique $agenda $matches))
                          ($_save (forward-save-agenda $kbid $nagenda)))
                        ())
                     ()))
@@ -37,7 +37,7 @@
 (= (forward-satisfy-premises $steps () $goal) $goal)
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal)
    (if (= $prem (CPU $fun $args $res))
-      (let $res (cpu-call $steps $fun $args) (forward-satisfy-premises $steps $rest $goal))
+      (let $res (reduce (cpu-call $steps $fun $args)) (forward-satisfy-premises $steps $rest $goal))
       (if (= $prem (: $_kb $_prf $_type $_tv))
          (match &kb $prem
             (forward-satisfy-premises $steps $rest $goal))
@@ -45,6 +45,15 @@
 
 (= (agenda-push-fact $agenda $fact)
    (let $score (term-confidence $fact) (add_to_heap $agenda (- 0 $score) (qitem $score $fact))))
+
+(= (agenda-has-fact? $agenda $fact)
+   (if (== (heap_size $agenda) 0) false
+      (let*
+         (($rest (get_from_heap $agenda $_priority (qitem $_score $queued-fact))))
+         (or (=alpha $queued-fact $fact) (agenda-has-fact? $rest $fact)))))
+
+(= (agenda-push-fact-unique $agenda $fact)
+   (if (agenda-has-fact? $agenda $fact) $agenda (agenda-push-fact $agenda $fact)))
 
 (= (forward-fact-upsert $agenda (@ $fact (: $kb $prf $type $tv)))
    (let*
@@ -66,7 +75,7 @@
    (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda
       (let*
          (($rest (get_from_heap $agenda $_priority (qitem $_score $fact)))
-           ($derived (forward-rule-results $steps $kb $fact))
+           ($derived (forward-rule-results $steps $kb (tracem pop $fact)))
            ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
          (forward-loop (- $steps 1) $kb $nagenda))))
 

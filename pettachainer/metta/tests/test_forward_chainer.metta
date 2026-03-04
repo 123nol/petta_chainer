@@ -77,3 +77,18 @@
    (: seedToGoal (Implication (Premises (RuleSeed)) (Conclusions (RuleAddGoal))) (STV 1.0 1.0)))
 
 !(test (let $_ (forward-chain 2 ruleaddkb) (forward-has-derived? ruleaddkb (RuleAddGoal))) true)
+
+!(compileadd dedupekb (: dedupeSeed (DedupeSeed) (STV 1.0 0.4)))
+
+!(compileadd dedupekb
+   (: dedupeRule (Implication (Premises (DedupeSeed)) (Conclusions (DedupeGoal))) (STV 1.0 0.5)))
+
+!(test (heap_size (get-state fwd_agenda_dedupekb)) 1)
+
+!(test
+   (let*
+      (($_ (forward-chain 10 dedupekb))
+        ($cpu-call-tvs
+           (collapse (match &kb (: (dedupekb MAIN Nil) $prf (DedupeGoal) (cpu-call $steps $fun $args)) true))))
+      (== $cpu-call-tvs ()))
+   true)
