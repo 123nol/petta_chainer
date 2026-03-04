@@ -20,14 +20,6 @@
         ($_ (add-atom &kb $merged-fact)))
       (if (== $hits ()) (agenda-push-fact $agenda $merged-fact) $agenda)))
 
-(= (forward-enqueue-facts () $agenda) $agenda)
-(= (forward-enqueue-facts (cons $fact $tail) $agenda)
-   (forward-enqueue-facts $tail (forward-fact-upsert $agenda $fact)))
-
-(= (forward-seed-agenda () $agenda) $agenda)
-(= (forward-seed-agenda (cons $fact $tail) $agenda)
-   (forward-seed-agenda $tail (agenda-push-fact $agenda $fact)))
-
 (= (forward-rule-results $steps $kb $fact)
    (collapse
       (let*
@@ -44,13 +36,11 @@
       (let*
          (($rest (get_from_heap $agenda $_priority (qitem $_score $fact)))
            ($derived (forward-rule-results $steps $kb $fact))
-           ($nagenda (forward-enqueue-facts $derived $rest)))
+           ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
          (forward-loop (- $steps 1) $kb $nagenda))))
 
 (= (forward-chain $steps $kb)
-   (let*
-      (($agenda0 (forward-seed-agenda (forward-kb-facts $kb) (empty_heap)))
-        ($_run (forward-loop $steps $kb $agenda0)))
+   (progn (forward-loop $steps $kb (fold-flat agenda-push-fact (empty_heap) (forward-kb-facts $kb)))
       true))
 
 (= (forward-has-derived? $kb $type)

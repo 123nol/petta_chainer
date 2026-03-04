@@ -38,21 +38,20 @@
             (let $idtail (addidx $tail 0) (&^& $to-proj $cmp-out (superpose $idtail)))))
       (empty)))
 
-(= (compile-foldall-query $kb $pattern) (collapse (mm2compileQuery $kb (: $prf $pattern $tvin))))
-
 (= (inline-premise $kb $premise)
-   (if (= $premise (Compute $f $args -> $res)) (CPU $f $args $res)
-      (if (= $premise (Map2Dist $fun $a $b -> $out)) (CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out)
-         (if (= $premise (AverageDist $pattern -> $out)) (CPU DistAverageFormula ($kb $pattern) $out)
-            (if (= $premise (FoldAllValue $pattern $value $init $fun -> $out))
-               (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out)
-               (if (= $premise (FoldAll $pattern $value $init $fun -> $out))
-                  (let $qplan (compile-foldall-query $kb $pattern)
-                     (CPU FoldAllFormulaCompiled ($qplan $pattern $value $init $fun) $out))
-                  $premise))))))
+   (case $premise (
+        ((Compute $f $args -> $res) (CPU $f $args $res))
+        ((Map2Dist $fun $a $b -> $out) (CPU Map2DistRuntimeFormula ($kb $fun $a $b) $out))
+        ((AverageDist $pattern -> $out) (CPU DistAverageFormula ($kb $pattern) $out))
+        ((FoldAllValue $pattern $value $init $fun -> $out)
+           (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out))
+        ((FoldAll $pattern $value $init $fun -> $out)
+           (CPU FoldAllFormulaCompiled
+              ((collapse (mm2compileQuery $kb (: $prf $pattern $tvin))) $pattern $value $init $fun)
+              $out))
+        ($other $other))))
 
-(= (inline-premises $kb ()) ())
-(= (inline-premises $kb (cons $h $t)) (cons (inline-premise $kb $h) (inline-premises $kb $t)))
+(= (inline-premises $kb $premises) (map-flat (inline-premise $kb) $premises))
 
 (= (cpu-premise-tv-formula $f)
    (is-member $f

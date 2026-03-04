@@ -27,10 +27,11 @@
       (fold-flat state-enqueue-item $state1 (collapse (rule-candidate-items $max-score $cont $goal)))))
 
 (= (rule-candidate-items $max-score $cont $goal)
-   (let $id (match &ccls_index ($goal $id) $id)
-      (let ($_id $_goal $args) (match &rules ($id $goal $args) ($_id $_goal $args))
-         (let $score (min $max-score (premises-expected-confidence $args))
-            (candidate-item $score $args $goal $cont)))))
+   (let*
+      (($id (match &ccls_index ($goal $id) $id))
+        (($_id $_goal $args) (match &rules ($id $goal $args) ($_id $_goal $args)))
+        ($score (min $max-score (premises-expected-confidence $args))))
+      (candidate-item $score $args $goal $cont)))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -118,15 +119,11 @@
          Map2DistRuntimeFormula)))
 
 (= (cpu-call $steps $fun $args)
-   (let $call (if (cpu-needs-steps $fun) (cons $fun (cons $steps $args)) (cons $fun $args))
-      (reduce (reduce $call))))
+   (reduce (reduce (if (cpu-needs-steps $fun) (cons $fun (cons $steps $args)) (cons $fun $args)))))
 
 (= (foldall-eval $fun $acc ()) $acc)
 (= (foldall-eval $fun $acc (cons $elem $tail))
-   (let*
-      (($call (cons $fun (cons $acc (cons $elem ()))))
-        ($nacc (reduce (reduce $call))))
-      (foldall-eval $fun $nacc $tail)))
+   (foldall-eval $fun (reduce (reduce (cons $fun (cons $acc (cons $elem ()))))) $tail))
 
 (= (extract-proof-tvs ()) ())
 (= (extract-proof-tvs (cons (: $_kb $_prf $_type $tv) $tail)) (cons $tv (extract-proof-tvs $tail)))
@@ -141,13 +138,12 @@
       (chainer $steps $query)))
 
 (= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
-   (let $matches
-      (collapse (let (: $kbr $prf $pattern $tvin) (run-compiled-query $steps $compiled-query) $value))
-      (foldall-eval $fun $init $matches)))
+   (foldall-eval $fun
+      $init
+      (collapse (let (: $kbr $prf $pattern $tvin) (run-compiled-query $steps $compiled-query) $value))))
 
 (= (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun)
-   (let $matches (extract-proof-tvs (run-compiled-query $steps $compiled-query))
-      (foldall-eval $fun $init $matches)))
+   (foldall-eval $fun $init (extract-proof-tvs (run-compiled-query $steps $compiled-query))))
 
 (= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
    (let $kctx (fold-kbctx $kb)
@@ -164,8 +160,9 @@
 (= (fold-kbctx $kb) (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
 
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
-   (let $matches (collapse (let (: $prf $pattern $ptv) (query $steps $kb (: $prf $pattern $ptv)) $ptv))
-      (foldall-eval $fun $init $matches)))
+   (foldall-eval $fun
+      $init
+      (collapse (let (: $prf $pattern $ptv) (query $steps $kb (: $prf $pattern $ptv)) $ptv))))
 
 (= (FoldAllValueFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun))
