@@ -1,3 +1,13 @@
+(: Nat Type)
+(: Z Nat)
+(: S (-> Nat Nat))
+(: fromNumber (-> Number Nat))
+(= (fromNumber $n) (if (<= $n 0) Z (S (fromNumber (- $n 1)))))
+
+(: fromNat (-> Nat Number))
+(= (fromNat Z) 0)
+(= (fromNat (S $k)) (+ 1 (fromNat $k)))
+
 (= (or-1.0 $x) (if (is-var $x) 1.0 $x))
 
 (= (tv-confidence $tv) (if (is-var $tv) 1.0 (if (= $tv (STV $_s $c)) (or-1.0 $c) 1.0)))
@@ -118,7 +128,7 @@
            ($nrest (heap-drop-resume-cand $rest $rid $proof))
            ($drop?
               (case $payload (
-                   ((resume-cand $rid $rtype $_cand) (same-alpha-type? $rtype $proof))
+                   ((resume-cand $rid $rtype $_seen $_cand) (same-alpha-type? $rtype $proof))
                    ($_p false)))))
          (if $drop? $nrest (add_to_heap $nrest $priority (qitem $score $payload))))))
 
@@ -140,32 +150,47 @@
 (=
    (resume-merge-enqueue (state $pq $rcache $gcache)
       $rid
-      $prem
+      $resume-template
       $proved-goal
-      $rest
-      $goal
       $parent-score
+      $seen-evidence
       $rest-cont)
    (let*
       (((resume-cache-result $merged-proof $had-hit) (resume-cache-upsert $rcache $rid $proved-goal))
-        ($_u (= $prem $merged-proof))
-        ($new-score (min $parent-score (term-confidence $merged-proof)))
-        ($clean-pq (if $had-hit (heap-drop-resume-cand $pq $rid $proved-goal) $pq))
-        ($next
-           (state-enqueue-item (state $clean-pq $rcache $gcache)
-              (qitem $new-score
-                 (resume-cand $rid (goal-type-key $merged-proof) (cand ($rest |- $goal) $rest-cont))))))
-      (reduce $next)))
+        ($merged-compatible
+           (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $merged-proof))))
+        ($proved-compatible
+           (not (evidence-sets-overlap? $seen-evidence (proof-atom-evidence-set $proved-goal))))
+        ($resume-proof (if $merged-compatible $merged-proof $proved-goal))
+        ($evidence-compatible (or $merged-compatible $proved-compatible))
+        ((resume-template $prem $rest $goal) (copy_term $resume-template))
+        ($prem-compatible (if $evidence-compatible (= $prem $resume-proof) false))
+        ($new-score (min $parent-score (term-confidence $resume-proof)))
+        ($next-seen-evidence
+           (list_to_set (list-append $seen-evidence (proof-atom-evidence-set $resume-proof))))
+        ($clean-pq
+           (if (and $had-hit $prem-compatible $merged-compatible)
+              (heap-drop-resume-cand $pq $rid $merged-proof)
+              $pq)))
+      (if $prem-compatible
+         (let $next
+            (state-enqueue-item (state $clean-pq $rcache $gcache)
+               (qitem $new-score
+                  (resume-cand $rid
+                     (goal-type-key $resume-proof)
+                     $next-seen-evidence
+                     (cand ($rest |- $goal) $rest-cont))))
+            (reduce $next))
+         (state $clean-pq $rcache $gcache))))
 
 (=
    (resume-merge-enqueue-cont $state
       $proved-goal
-      (cons (resume $rid $prem $rest $goal $parent-score) $rest-cont))
+      (cons (resume $rid $resume-template $parent-score $seen-evidence) $rest-cont))
    (resume-merge-enqueue $state
       $rid
-      $prem
+      $resume-template
       $proved-goal
-      $rest
-      $goal
       $parent-score
+      $seen-evidence
       $rest-cont))

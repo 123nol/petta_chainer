@@ -1,13 +1,3 @@
-(: Nat Type)
-(: Z Nat)
-(: S (-> Nat Nat))
-(: fromNumber (-> Number Nat))
-(= (fromNumber $n) (if (<= $n 0) Z (S (fromNumber (- $n 1)))))
-
-(: fromNat (-> Nat Number))
-(= (fromNat Z) 0)
-(= (fromNat (S $k)) (+ 1 (fromNat $k)))
-
 (= (chainer $steps $goal)
    (let*
       (($_rclear (remove-all-atoms &resume_cache))
@@ -36,7 +26,7 @@
 
 (= (rule-candidate-backoff-item $direct-max (qitem $score $payload))
    (let $factor (rule-candidate-backoff-factor-from-direct $direct-max)
-      (qitem (* (min $score $direct-max) $factor) $payload)))
+      (qitem (* $score $factor) $payload)))
 
 (= (enqueue-goal-state $steps $state $max-score $cont $goal)
    (let*
@@ -77,12 +67,14 @@
         ($score (min $max-score (term-confidence $proof))))
       (candidate-item $score () $proof $cont)))
 
-(= (payload-cand $payload) (if (= $payload (resume-cand $_rid $_type $cand)) $cand $payload))
+(= (payload-cand $payload) (if (= $payload (resume-cand $_rid $_type $_seen $cand)) $cand $payload))
 
-(= (payload-rid $payload) (if (= $payload (resume-cand $rid $_type $_cand)) $rid (nextctx)))
+(= (payload-rid $payload) (if (= $payload (resume-cand $rid $_type $_seen $_cand)) $rid (nextctx)))
+
+(= (payload-seen-evidence $payload) (if (= $payload (resume-cand $_rid $_type $seen $_cand)) $seen ()))
 
 (= (payload-repack $payload $cand)
-   (if (= $payload (resume-cand $rid $type $_old-cand)) (resume-cand $rid $type $cand) $cand))
+   (if (= $payload (resume-cand $rid $type $seen $_old-cand)) (resume-cand $rid $type $seen $cand) $cand))
 
 (= (search-rules $steps $heap $rcache $gcache)
    (if (or (== (heap_size $heap) 0) (<= $steps 0)) ()
@@ -90,12 +82,14 @@
          (($pq-rest (get_from_heap $heap $_priority (qitem $score $payload)))
            ((cand ((cons $prem $rest) |- $goal) $cont) (payload-cand $payload))
            ($rid (payload-rid $payload))
-           ((resume-template $rprem $rrest $rgoal) (copy_term (resume-template $prem $rest $goal)))
+           ($seen-evidence (payload-seen-evidence $payload))
+           ((resume-template $rprem $_rrest $_rgoal) (copy_term (resume-template $prem $rest $goal)))
+           ($resume-template (copy_term (resume-template $prem $rest $goal)))
            ((state $new-pq $_new-rcache $_new-gcache)
               (enqueue-goal-state $steps
                  (state $pq-rest $rcache $gcache)
                  $score
-                 (cons (resume $rid $rprem $rrest $rgoal $score) $cont)
+                 (cons (resume $rid $resume-template $score $seen-evidence) $cont)
                  $rprem)))
          (search-rules (- $steps 1) $new-pq $rcache $gcache))))
 
@@ -119,7 +113,13 @@
 
 (= (resume-cont-has-type? () $type) false)
 (=
-   (resume-cont-has-type? (cons (resume $_rid $_prem $_rest (: $_kb $_prf $goal-type $_tv) $_score) $tail)
+   (resume-cont-has-type?
+      (cons
+         (resume $_rid
+            (resume-template $_prem $_rest (: $_kb $_prf $goal-type $_tv))
+            $_score
+            $_seen-evidence)
+         $tail)
       $type)
    (or (=alpha $goal-type $type) (resume-cont-has-type? $tail $type)))
 
