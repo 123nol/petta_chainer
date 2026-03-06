@@ -23,21 +23,15 @@
 (= (premises-expected-confidence (cons $prem $rest))
    (min (term-confidence $prem) (premises-expected-confidence $rest)))
 
-(= (K) 800)
-
-(= (confidence-to-count $conf) (/ (* $conf (K)) (- 1 (min-atom ($conf 0.9999)))))
-
-(= (count-to-confidence $count) (/ $count (+ $count (K))))
-
-(= (mean-update $m1 $m2 $c1 $c2) (/ (+ (* $m1 $c1) (* $m2 $c2)) (+ $c1 $c2)))
+(= (confidence-to-count $conf) (/ (* $conf 800) (- 1 (min-atom ($conf 0.9999)))))
 
 (= (mergetvs (STV $m1 $conf1) (STV $m2 $conf2))
    (let*
       (($count1 (confidence-to-count $conf1))
         ($count2 (confidence-to-count $conf2))
-        ($m (mean-update $m1 $m2 $count1 $count2))
+        ($m (/ (+ (* $m1 $count1) (* $m2 $count2)) (+ $count1 $count2)))
         ($c (+ $count1 $count2))
-        ($conf (count-to-confidence $c)))
+        ($conf (/ $c (+ $c 800))))
       (STV $m $conf)))
 
 (= (RevisionMergeProof ($type1 $kb $prf1 $tv1) ($_type2 $_kb2 $prf2 $tv2))
