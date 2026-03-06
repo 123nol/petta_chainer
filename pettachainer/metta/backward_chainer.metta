@@ -1,5 +1,5 @@
 (= (goal-term-by-id $gid)
-   (let $goals (collapse (match &goal_store (goal-node $gid $goal) $goal))
+   (let $goals (collapse (once (match &goal_store (goal-node $gid $goal) $goal)))
       (if (== $goals ()) (empty) (car-atom $goals))))
 
 (= (backward-load-agenda)
@@ -7,10 +7,10 @@
 
 (= (backward-save-agenda $agenda) (change-state! bwd_agenda $agenda))
 
-(= (goal-expanded? $gid) (not (== (collapse (match &goal_store (goal-expanded $gid) true)) ())))
+(= (goal-expanded? $gid) (not (== (collapse (once (match &goal_store (goal-expanded $gid) true))) ())))
 
 (= (goal-pending-score-of $gid)
-   (let $scores (collapse (match &goal_store (goal-pending-score $gid $score) $score))
+   (let $scores (collapse (once (match &goal_store (goal-pending-score $gid $score) $score)))
       (if (== $scores ()) 0.0 (car-atom $scores))))
 
 (= (clear-goal-pending-score $gid)
@@ -21,15 +21,16 @@
       ()))
 
 (= (proof-goal-by-id $pid)
-   (let $gids (collapse (match &proof_store (proof-goal $pid $gid) $gid))
+   (let $gids (collapse (once (match &proof_store (proof-goal $pid $gid) $gid)))
       (if (== $gids ()) (empty) (car-atom $gids))))
 
 (= (proof-children-by-id $pid)
-   (let $kids-list (collapse (match &proof_store (proof-children $pid $kids) $kids))
+   (let $kids-list (collapse (once (match &proof_store (proof-children $pid $kids) $kids)))
       (if (== $kids-list ()) () (car-atom $kids-list))))
 
 (= (and-bundle-by-id $aid)
-   (let $bundles (collapse (match &goal_store (and-node $aid $_parent $_rule $_bound $bundle) $bundle))
+   (let $bundles
+      (collapse (once (match &goal_store (and-node $aid $_parent $_rule $_bound $bundle) $bundle)))
       (if (== $bundles ()) () (car-atom $bundles))))
 
 (= (instantiate-aid-with-pids $aid $pid-list)
@@ -93,11 +94,14 @@
 (= (ensure-goal $goal)
    (let $hits
       (collapse
-         (let $sealed-goal
-            (if (= $goal (: $kb $_prf $type $_tv)) (sealed (extract-vars $goal) (: $kb $prf $type $tv))
-               (sealed (extract-vars $goal) $goal))
-            (match &goal_store (goal-node $gid $sealed-goal)
-               (if (goal-key-eq? $sealed-goal $goal) $gid (empty)))))
+         (once
+            (if (= $goal (: $kb $_prf $type $_tv))
+               (let $sealed-type (sealed (extract-vars $type) $type)
+                  (match &goal_store (goal-node $gid (: $kb $_stored-prf $sealed-type $_stored-tv))
+                     (if (goal-key-eq? (: $kb $_stored-prf $sealed-type $_stored-tv) $goal) $gid (empty))))
+               (let $sealed-goal (sealed (extract-vars $goal) $goal)
+                  (match &goal_store (goal-node $gid $sealed-goal)
+                     (if (goal-key-eq? $sealed-goal $goal) $gid (empty)))))))
       (if (== $hits ())
          (let*
             (($gid (next-gid))
@@ -242,18 +246,20 @@
                        ()))))))))
 
 (= (frontier-parent-gid-or-aid $aid)
-   (let $parents (collapse (match &goal_store (and-node $aid $parent $_rule $_bound $_bundle) $parent))
+   (let $parents
+      (collapse (once (match &goal_store (and-node $aid $parent $_rule $_bound $_bundle) $parent)))
       (if (== $parents ()) (empty) (car-atom $parents))))
 
 (= (frontier-state-by-id $fid)
    (let $states
       (collapse
-         (match &goal_store (frontier $fid $aid $bundle $score $seen $rev-pids)
-            (frontier-state $aid
-               $bundle
-               $score
-               $seen
-               $rev-pids)))
+         (once
+            (match &goal_store (frontier $fid $aid $bundle $score $seen $rev-pids)
+               (frontier-state $aid
+                  $bundle
+                  $score
+                  $seen
+                  $rev-pids))))
       (if (== $states ()) (frontier-state none () 0.0 () ()) (car-atom $states))))
 
 (= (advance-frontier $fid $pid)

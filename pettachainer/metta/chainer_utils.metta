@@ -73,19 +73,19 @@
 (= (next-fid) (next-search-id bwd_fid))
 
 (= (proof-score-by-id $pid)
-   (let $scores (collapse (match &proof_store (proof-score $pid $score) $score))
+   (let $scores (collapse (once (match &proof_store (proof-score $pid $score) $score)))
       (if (== $scores ()) 0.0 (car-atom $scores))))
 
 (= (proof-tv-by-id $pid)
-   (let $tvs (collapse (match &proof_store (proof-tv $pid $tv) $tv))
+   (let $tvs (collapse (once (match &proof_store (proof-tv $pid $tv) $tv)))
       (if (== $tvs ()) (STV 1.0 1.0) (car-atom $tvs))))
 
 (= (proof-evidence-by-id $pid)
-   (let $evidence (collapse (match &proof_store (proof-evidence $pid $ev) $ev))
+   (let $evidence (collapse (once (match &proof_store (proof-evidence $pid $ev) $ev)))
       (if (== $evidence ()) () (car-atom $evidence))))
 
 (= (proof-kind-by-id $pid)
-   (let $kinds (collapse (match &proof_store (proof-kind $pid $kind) $kind))
+   (let $kinds (collapse (once (match &proof_store (proof-kind $pid $kind) $kind)))
       (if (== $kinds ()) (empty) (car-atom $kinds))))
 
 (= (proof-term-tree $prf) (if (= $prf (proof-ref $pid)) (materialize-proof $pid) $prf))
