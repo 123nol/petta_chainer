@@ -111,8 +111,6 @@
                   (add-atom &goal_pending_score ($gid $score))
                   ()))))))
 
-(= (goal-has-ancestor? $gid $ancestor) (goal-has-ancestor-seen? $gid $ancestor ()))
-
 (= (goal-has-ancestor-seen? $gid $ancestor $seen)
    (if (== $gid $ancestor) true
       (if (is-member $gid $seen) false
@@ -134,11 +132,8 @@
             (let $utype (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
                (collapse (match &kb ($utype $kb $prf $tv) ($type $kb $prf $tv))))))))
 
-(= (leaf-proof-evidence-key $kb $prf $type) (fact-ev $kb $prf $type))
-
 (= (leaf-evidence-for-result $result)
-   (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
-      (cons (leaf-proof-evidence-key ($kbid $_ctx $_vars) $prf $type) ())
+   (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv)) (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ())
       ()))
 
 (= (store-leaf-proof $gid $result)
@@ -217,7 +212,7 @@
            (let*
               (($gid (ensure-goal $prem))
                 ($parent-gid (and-parent-gid-by-id $aid)))
-              (if (goal-has-ancestor? $parent-gid $gid) ()
+              (if (goal-has-ancestor-seen? $parent-gid $gid ()) ()
                  (let*
                     (($fid (next-fid))
                       ($stored-bundle (copy_term $bundle))
@@ -287,9 +282,6 @@
             (expand-rule-goal $gid $goal)
             ()))))
 
-(= (queued-goal-current? $gid $score)
-   (if (goal-expanded? $gid) false (== (goal-pending-score-of $gid) $score)))
-
 (= (search-goals $steps)
    (if (<= $steps 0) ()
       (let $agenda (backward-load-agenda)
@@ -297,7 +289,7 @@
             (let $rest (get_from_heap $agenda $_priority $item)
                (let (qitem $score $gid) $item
                   (let $_save (backward-save-agenda $rest)
-                     (if (queued-goal-current? $gid $score)
+                     (if (if (goal-expanded? $gid) false (== (goal-pending-score-of $gid) $score))
                         (progn
                            (clear-goal-pending-score $gid)
                            (expand-goal $steps $gid)
