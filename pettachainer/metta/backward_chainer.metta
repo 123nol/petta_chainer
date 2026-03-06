@@ -1,9 +1,5 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
-(= (goal-class-of $goal) (if (proof-atom? $goal) proof direct))
-
-(= (goal-class-by-id $gid) (match &goal_class ($gid $class) $class))
-
 (= (backward-load-agenda)
    (let $magenda (catch (get-state bwd_agenda)) (if-error $magenda (empty_heap) $magenda)))
 
@@ -68,15 +64,14 @@
         ($tv (proof-tv-by-id $pid)))
       ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)))
 
-(= (merge-goal-proof-atoms $goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
-
-(= (merge-goal-proof-list $goal $pids) (fold-flat merge-goal-proof-atoms $goal $pids))
-
 (= (goal-results $gid)
    (let*
       (($pids (collapse (match &goal_proof ($gid $pid) $pid)))
         ($merged
-           (if (== $pids ()) () (merge-goal-proof-list (proof-output-atom (car-atom $pids)) (cdr-atom $pids)))))
+           (if (== $pids ()) ()
+              (fold-flat (|-> ($goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
+                 (proof-output-atom (car-atom $pids))
+                 (cdr-atom $pids)))))
       (if (== $pids ()) () (cons (materialize-proof-atom $merged) ()))))
 
 (= (ensure-goal $goal)
@@ -96,7 +91,7 @@
          (let*
             (($gid (next-gid))
               ($stored-goal (copy_term $goal))
-              ($goal-class (goal-class-of $stored-goal))
+              ($goal-class (if (= $stored-goal ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) proof direct))
               ($_1 (add-atom &goal_by_id ($gid $stored-goal)))
               ($_2 (add-atom &goal_lookup ($stored-goal $gid)))
               ($_3 (add-atom &goal_class ($gid $goal-class))))
@@ -109,7 +104,7 @@
          (if (>= $current $score) ()
             (let*
                (($agenda (backward-load-agenda))
-                 ($goal-class (goal-class-by-id $gid))
+                 ($goal-class (match &goal_class ($gid $class) $class))
                  ($bonus (if (== $goal-class proof) 0.0 1.0))
                  ($priority (- 0 (+ (* 1000000.0 $score) $bonus)))
                  ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
@@ -129,11 +124,11 @@
                (match &goal_waiter ($gid $fid)
                   (match &frontier ($fid $parent $_aid $_bundle $_score $_seen $_rev)
                      $parent)))
-            (goals-have-ancestor? $parents $ancestor (cons $gid $seen))))))
-
-(= (goals-have-ancestor? () $ancestor $seen) false)
-(= (goals-have-ancestor? (cons $gid $rest) $ancestor $seen)
-   (or (goal-has-ancestor-seen? $gid $ancestor $seen) (goals-have-ancestor? $rest $ancestor $seen)))
+            (fold-flat
+               (|-> ($found $parent)
+                  (or $found (goal-has-ancestor-seen? $parent $ancestor (cons $gid $seen))))
+               false
+               $parents)))))
 
 (= (direct-goal-results $steps $goal)
    (if (= $goal (CPU $fun $args $_res)) ((CPU $fun $args (cpu-call $steps $fun $args)))

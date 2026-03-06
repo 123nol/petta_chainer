@@ -54,11 +54,6 @@
 
 (= (list-reverse $xs) (list-reverse-acc $xs ()))
 
-(= (proof-atom? $term)
-   (if (not (is-var $term))
-      (or (= $term ($_type ($_kbid $_ctx $_vars) $_prf $_tv)) (= $term (: $_kb $_prf $_type $_tv)))
-      false))
-
 (= (goal-key-components $goal)
    (if (= $goal (: $kb $_prf $type $_tv)) ($kb $type)
       (if (= $goal ($type ($kbid $_ctx $_vars) $_prf $_tv)) (($kbid $_ctx $_vars) $type) ())))
