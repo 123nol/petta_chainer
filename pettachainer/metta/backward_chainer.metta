@@ -93,8 +93,11 @@
 (= (ensure-goal $goal)
    (let $hits
       (collapse
-         (match &goal_store (goal-node $gid $stored-goal)
-            (if (goal-key-eq? $stored-goal $goal) $gid (empty))))
+         (let $sealed-goal
+            (if (= $goal (: $kb $_prf $type $_tv)) (sealed (extract-vars $goal) (: $kb $prf $type $tv))
+               (sealed (extract-vars $goal) $goal))
+            (match &goal_store (goal-node $gid $sealed-goal)
+               (if (goal-key-eq? $sealed-goal $goal) $gid (empty)))))
       (if (== $hits ())
          (let*
             (($gid (next-gid))
@@ -109,7 +112,10 @@
          (if (>= $current $score) ()
             (let*
                (($agenda (backward-load-agenda))
-                 ($nagenda (add_to_heap $agenda (- 0 $score) (qitem $score $gid)))
+                 ($goal (goal-term-by-id $gid))
+                 ($bonus (if (proof-atom? $goal) 0.0 1.0))
+                 ($priority (- 0 (+ (* 1000000.0 $score) $bonus)))
+                 ($nagenda (add_to_heap $agenda $priority (qitem $score $gid)))
                  ($_save (backward-save-agenda $nagenda)))
                (progn
                   (clear-goal-pending-score $gid)
