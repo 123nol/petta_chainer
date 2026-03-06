@@ -120,17 +120,16 @@
             (if (is-expr $head) (cdr-atom $prf) (if (rule-proof-id? $head) (cdr-atom $prf) ()))))
       ()))
 
-(= (proof-term-evidence-list-children ()) ())
-(= (proof-term-evidence-list-children (cons $head $tail))
-   (list-append (proof-term-evidence-list $head) (proof-term-evidence-list-children $tail)))
-
 (= (proof-term-evidence-list $prf)
    (if (= $prf (proof-ref $pid)) (proof-evidence-by-id $pid)
       (if (is-var $prf) ()
          (if (= $prf (merge/revision $left $right))
             (list-append (proof-term-evidence-list $left) (proof-term-evidence-list $right))
             (let $children (proof-term-children $prf)
-               (if (== $children ()) (cons $prf ()) (proof-term-evidence-list-children $children)))))))
+               (if (== $children ()) (cons $prf ())
+                  (fold-flat (|-> ($acc $child) (list-append $acc (proof-term-evidence-list $child)))
+                     ()
+                     $children)))))))
 
 (= (proof-atom-evidence-set ($_type $_kb $prf $_tv)) (list_to_set (proof-term-evidence-list $prf)))
 

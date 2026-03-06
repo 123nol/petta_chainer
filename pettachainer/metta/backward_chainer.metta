@@ -40,12 +40,8 @@
 (= (materialize-proof-refs $term)
    (if (= $term (proof-ref $pid)) (materialize-proof $pid)
       (if (is-expr $term)
-         (cons (materialize-proof-refs (car-atom $term)) (materialize-proof-refs-list (cdr-atom $term)))
+         (cons (materialize-proof-refs (car-atom $term)) (map-flat materialize-proof-refs (cdr-atom $term)))
          $term)))
-
-(= (materialize-proof-refs-list ()) ())
-(= (materialize-proof-refs-list (cons $head $tail))
-   (cons (materialize-proof-refs $head) (materialize-proof-refs-list $tail)))
 
 (= (materialize-proof-atom ($type $kb $prf $tv)) ($type $kb (materialize-proof-refs $prf) $tv))
 
@@ -70,9 +66,7 @@
 
 (= (merge-goal-proof-atoms $goal $pid) (merge-proof-atoms $goal (proof-output-atom $pid)))
 
-(= (merge-goal-proof-list $goal ()) $goal)
-(= (merge-goal-proof-list $goal (cons $pid $rest))
-   (merge-goal-proof-list (merge-goal-proof-atoms $goal $pid) $rest))
+(= (merge-goal-proof-list $goal $pids) (fold-flat merge-goal-proof-atoms $goal $pids))
 
 (= (goal-results $gid)
    (let*
@@ -193,16 +187,10 @@
                (if (proof-overlap-dominates? $oldpid $pid) $oldpid (empty))))
          ())))
 
-(= (advance-frontier-list $_pid ()) ())
-(= (advance-frontier-list $pid (cons $fid $rest))
-   (progn (advance-frontier $fid $pid) (advance-frontier-list $pid $rest)))
-
-(= (advance-proof-list-into-frontier $_fid ()) ())
-(= (advance-proof-list-into-frontier $fid (cons $pid $rest))
-   (progn (advance-frontier $fid $pid) (advance-proof-list-into-frontier $fid $rest)))
-
 (= (attach-existing-goal-proofs $fid $gid)
-   (advance-proof-list-into-frontier $fid (collapse (match &goal_proof ($gid $pid) $pid))))
+   (fold-flat (|-> ($acc $pid) (progn (advance-frontier $fid $pid) $acc))
+      ()
+      (collapse (match &goal_proof ($gid $pid) $pid))))
 
 (= (register-proof $gid $pid)
    (if (goal-proof-rejected? $gid $pid) (progn (add-atom &proof_status ($pid (dominated existing))) ())
@@ -210,15 +198,16 @@
          (prune-dominated-goal-proofs $gid $pid)
          (add-atom &goal_proof ($gid $pid))
          (add-atom &proof_status ($pid live))
-         (advance-frontier-list $pid (collapse (match &goal_waiter ($gid $fid) $fid))))))
+         (fold-flat (|-> ($acc $fid) (progn (advance-frontier $fid $pid) $acc))
+            ()
+            (collapse (match &goal_waiter ($gid $fid) $fid))))))
 
 (= (emit-leaf-result $gid $result) (register-proof $gid (store-leaf-proof $gid $result)))
 
-(= (emit-leaf-results $_gid ()) ())
-(= (emit-leaf-results $gid (cons $result $rest))
-   (progn (emit-leaf-result $gid $result) (emit-leaf-results $gid $rest)))
-
-(= (expand-direct-goal $steps $gid $goal) (emit-leaf-results $gid (direct-goal-results $steps $goal)))
+(= (expand-direct-goal $steps $gid $goal)
+   (fold-flat (|-> ($acc $result) (progn (emit-leaf-result $gid $result) $acc))
+      ()
+      (direct-goal-results $steps $goal)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -283,11 +272,10 @@
            ($bundle (copy_term (and-bundle $goal $args))))
          (rule-option $id $bound $bundle))))
 
-(= (register-rule-options $_parent-gid ()) ())
-(= (register-rule-options $parent-gid (cons $option $rest))
-   (progn (register-rule-option $parent-gid $option) (register-rule-options $parent-gid $rest)))
-
-(= (expand-rule-goal $parent-gid $goal) (register-rule-options $parent-gid (goal-rule-options $goal)))
+(= (expand-rule-goal $parent-gid $goal)
+   (fold-flat (|-> ($acc $option) (progn (register-rule-option $parent-gid $option) $acc))
+      ()
+      (goal-rule-options $goal)))
 
 (= (expand-goal $steps $gid)
    (if (goal-expanded? $gid) ()
