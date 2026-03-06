@@ -18,7 +18,7 @@
 !(test
    (let*
       (($_ (forward-chain 50 fwdkb))
-        ($proofs (collapse (match &kb (: (fwdkb MAIN Nil) $prf (Path A C) $tv) $prf))))
+        ($proofs (collapse (match &kb ((Path A C) (fwdkb MAIN Nil) $prf $tv) $prf))))
       (list-count $proofs))
    1)
 
@@ -30,7 +30,7 @@
 !(test
    (let*
       (($_ (forward-chain 200 loopkb))
-        ($proofs (collapse (match &kb (: (loopkb MAIN Nil) $prf (Loop Start) $tv) $prf))))
+        ($proofs (collapse (match &kb ((Loop Start) (loopkb MAIN Nil) $prf $tv) $prf))))
       (list-count $proofs))
    1)
 
@@ -47,14 +47,14 @@
 !(test
    (let*
       (($_ (forward-chain 50 mergekb))
-        ($merged (collapse (match &kb (: (mergekb MAIN Nil) (merge/revision $p1 $p2) (SwitchGoal) $tv) true))))
+        ($merged (collapse (match &kb ((SwitchGoal) (mergekb MAIN Nil) (merge/revision $p1 $p2) $tv) true))))
       (== $merged ()))
    true)
 
 !(test
    (let*
       (($_ (forward-chain 50 mergekb))
-        ($proofs (collapse (match &kb (: (mergekb MAIN Nil) $prf (SwitchGoal) $tv) $prf))))
+        ($proofs (collapse (match &kb ((SwitchGoal) (mergekb MAIN Nil) $prf $tv) $prf))))
       (list-count $proofs))
    1)
 
@@ -89,6 +89,6 @@
    (let*
       (($_ (forward-chain 10 dedupekb))
         ($cpu-call-tvs
-           (collapse (match &kb (: (dedupekb MAIN Nil) $prf (DedupeGoal) (cpu-call $steps $fun $args)) true))))
+           (collapse (match &kb ((DedupeGoal) (dedupekb MAIN Nil) $prf (cpu-call $steps $fun $args)) true))))
       (== $cpu-call-tvs ()))
    true)

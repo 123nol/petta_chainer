@@ -7,7 +7,7 @@
 (= (forward-save-agenda $kb $agenda) (change-state! (atom_concat fwd_agenda_ $kb) $agenda))
 
 (= (forward-register-added-expr $expr)
-   (if (= $expr (: ($kbid MAIN Nil) $prf $type $tv))
+   (if (= $expr ($type ($kbid MAIN Nil) $prf $tv))
       (let*
          (($agenda (forward-load-agenda $kbid))
            ($nagenda (agenda-push-fact $agenda $expr))
@@ -20,13 +20,13 @@
       (($_
            (map-flat
               (|-> ($prem)
-                 (if (= $prem (: ($kbid MAIN Nil) $_prf $ptype $_ptv))
+                 (if (= $prem ($ptype ($kbid MAIN Nil) $_prf $_ptv))
                     (let*
                        (($agenda (forward-load-agenda $kbid))
                          ($matches
                             (collapse
-                               (match &kb (: ($kbid MAIN Nil) $prf $ptype $tv)
-                                  (: ($kbid MAIN Nil) $prf $ptype $tv))))
+                               (match &kb ($ptype ($kbid MAIN Nil) $prf $tv)
+                                  ($ptype ($kbid MAIN Nil) $prf $tv))))
                          ($nagenda (fold-flat agenda-push-fact-unique $agenda $matches))
                          ($_save (forward-save-agenda $kbid $nagenda)))
                        ())
@@ -38,7 +38,7 @@
 (= (forward-satisfy-premises $steps (cons $prem $rest) $goal)
    (if (= $prem (CPU $fun $args $res))
       (let $res (reduce (cpu-call $steps $fun $args)) (forward-satisfy-premises $steps $rest $goal))
-      (if (= $prem (: $_kb $_prf $_type $_tv))
+      (if (= $prem ($_type ($_kbid $_ctx $_vars) $_prf $_tv))
          (match &kb $prem
             (forward-satisfy-premises $steps $rest $goal))
          (empty))))
@@ -48,16 +48,17 @@
 
 (= (agenda-has-fact? $agenda $fact)
    (if (== (heap_size $agenda) 0) false
-      (let*
-         (($rest (get_from_heap $agenda $_priority (qitem $_score $queued-fact))))
-         (or (=alpha $queued-fact $fact) (agenda-has-fact? $rest $fact)))))
+      (let $rest (get_from_heap $agenda $_priority $item)
+         (let (qitem $_score $queued-fact) $item
+            (or (=alpha $queued-fact $fact) (agenda-has-fact? $rest $fact))))))
 
 (= (agenda-push-fact-unique $agenda $fact)
    (if (agenda-has-fact? $agenda $fact) $agenda (agenda-push-fact $agenda $fact)))
 
-(= (forward-fact-upsert $agenda (@ $fact (: $kb $prf $type $tv)))
+(= (forward-fact-upsert $agenda (@ $fact ($type ($kbid $_ctx $_vars) $prf $tv)))
    (let*
-      (($hits (collapse (match &kb (: $kb $prfo $type $tvo) (: $kb $prfo $type $tvo))))
+      (($kb ($kbid $_ctx $_vars))
+        ($hits (collapse (match &kb ($type $kb $prfo $tvo) ($type $kb $prfo $tvo))))
         ($_ (fold-flat (|-> ($acc $old-fact) (progn (remove-atom &kb $old-fact) $acc)) () $hits))
         ($merged-fact (fold-flat merge-proof-atoms $fact $hits))
         ($_ (add-atom &kb $merged-fact)))
@@ -73,11 +74,12 @@
 
 (= (forward-loop $steps $kb $agenda)
    (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda
-      (let*
-         (($rest (get_from_heap $agenda $_priority (qitem $_score $fact)))
-           ($derived (forward-rule-results $steps $kb $fact))
-           ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
-         (forward-loop (- $steps 1) $kb $nagenda))))
+      (let $rest (get_from_heap $agenda $_priority $item)
+         (let (qitem $_score $fact) $item
+            (let*
+               (($derived (forward-rule-results $steps $kb $fact))
+                 ($nagenda (fold-flat forward-fact-upsert $rest $derived)))
+               (forward-loop (- $steps 1) $kb $nagenda))))))
 
 (= (forward-chain $steps $kb)
    (let*
@@ -86,5 +88,4 @@
         ($_save (forward-save-agenda $kb $nagenda)))
       true))
 
-(= (forward-has-derived? $kb $type)
-   (not (== (collapse (match &kb (: ($kb MAIN Nil) $prf $type $tv) $prf)) ())))
+(= (forward-has-derived? $kb $type) (not (== (collapse (match &kb ($type ($kb MAIN Nil) $prf $tv) $prf)) ())))

@@ -430,14 +430,15 @@
          $forward-chain-len
          $print-before-compile)))
 
-(= (BenchCountByPattern $pattern) (BenchListCount (collapse (match &kb $pattern ok))))
-
 (= (BenchMainRuleCount $bench)
    (BenchListCount
       (collapse (match &bench_meta (bench-main-rule-meta $bench $_path $_level $_idx $_width $_conf) ok))))
 
 (= (BenchBaseFactCount $bench)
-   (BenchCountByPattern (: $_kb (bench-base-fact $bench $_path $_idx) (BenchFact $bench $_path $_idx) $_tv)))
+   (BenchListCount
+      (collapse
+         (match &kb ((BenchFact $bench $_path $_idx) $_kb (bench-base-fact $bench $_path $_idx) $_tv)
+            ok))))
 
 (= (BenchNoiseBackwardRuleCount $bench)
    (BenchListCount (collapse (match &bench_meta (bench-noise-back-rule-meta $bench $_idx $_step) ok))))
@@ -467,7 +468,7 @@
 
 (= (BenchPLNBaseAtoms $bench)
    (collapse
-      (match &kb (: $_kb (bench-base-fact $bench $path $idx) $type $tv)
+      (match &kb ($type $_kb (bench-base-fact $bench $path $idx) $tv)
          (: (bench-base-fact $bench $path $idx) $type $tv))))
 
 (= (BenchFirstOr $list $default) (if (== $list ()) $default (car-atom $list)))

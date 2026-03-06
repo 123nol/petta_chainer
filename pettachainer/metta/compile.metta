@@ -244,6 +244,30 @@
 
 (= (mf $kb ($kb $t)) $t)
 
+(= (internalize-proof-structure $term)
+   (if (is-var $term) $term
+      (if (= $term (: $kb $prf $type $tv)) ($type $kb $prf $tv)
+         (if (is-expr $term)
+            (cons (internalize-proof-structure (car-atom $term))
+               (internalize-proof-structure-list (cdr-atom $term)))
+            $term))))
+
+(= (internalize-proof-structure-list ()) ())
+(= (internalize-proof-structure-list (cons $head $tail))
+   (cons (internalize-proof-structure $head) (internalize-proof-structure-list $tail)))
+
+(= (externalize-proof-structure $term)
+   (if (is-var $term) $term
+      (if (= $term ($type ($kbid $ctx $vars) $prf $tv)) (: ($kbid $ctx $vars) $prf $type $tv)
+         (if (is-expr $term)
+            (cons (externalize-proof-structure (car-atom $term))
+               (externalize-proof-structure-list (cdr-atom $term)))
+            $term))))
+
+(= (externalize-proof-structure-list ()) ())
+(= (externalize-proof-structure-list (cons $head $tail))
+   (cons (externalize-proof-structure $head) (externalize-proof-structure-list $tail)))
+
 (= (pretty-prf-token $prf)
    (case $prf (
         ((mined_implication $premk $conck) (Implication (cons Premises ($premk)) (cons Conclusions ($conck))))
@@ -252,8 +276,7 @@
 (= (pretty-prf $prf) (if (is-expr $prf) (map-nested2 pretty-prf-token $prf) $prf))
 
 (= (lookup-mined-tv $premk $conck $fallback-tv)
-   (let $m
-      (collapse (once (match &kb (: ($kbid MAIN ()) (mined_implication $premk $conck) $itype $itv) $itv)))
+   (let $m (collapse (once (match &kb ($itype ($kbid MAIN ()) (mined_implication $premk $conck) $itv) $itv)))
       (if (== $m ()) $fallback-tv (car-atom $m))))
 
 (= (extract-mined-itv-from-args $args $fallback-tv)
@@ -279,6 +302,6 @@
    (if (is-expr $kb)
       (if (= $kb ($kbid MAIN Nil)) (: (pretty-prf $prf) $type $tv)
          (let ($_ $idx $vars) $kb
-            (let $x (map-flat (mf $kb) (collapse (match &kb (: $kb $p $t $tv2) ($kb $t))))
+            (let $x (map-flat (mf $kb) (collapse (match &kb ($t $kb $p $tv2) ($kb $t))))
                (: (pretty-prf $prf) (Implication (cons Premises $x) (cons Conclusions ($type))) $tv))))
       (: (pretty-prf $prf) $type $tv)))

@@ -19,21 +19,19 @@
    0.2)
 
 !(test
-   (goal-key-eq? (: (kb MAIN ()) p1 (LoopGoal $x) (STV 1.0 1.0))
-      (: (kb MAIN ()) p2 (LoopGoal $y) (STV 1.0 0.4)))
+   (goal-key-eq? ((LoopGoal $x) (kb MAIN ()) p1 (STV 1.0 1.0))
+      ((LoopGoal $y) (kb MAIN ()) p2 (STV 1.0 0.4)))
    true)
 
-!(test
-   (goal-key-eq? (: (kb MAIN ()) p1 (LoopGoal) (STV 1.0 1.0))
-      (: (kb ALT ()) p2 (LoopGoal) (STV 1.0 1.0)))
+!(test (goal-key-eq? ((LoopGoal) (kb MAIN ()) p1 (STV 1.0 1.0)) ((LoopGoal) (kb ALT ()) p2 (STV 1.0 1.0)))
    false)
 
 !(test
    (let*
       (($_gclear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
-        ($g1 (ensure-goal (: (kb MAIN ()) p1 (LoopGoal $x) (STV 1.0 1.0))))
-        ($g2 (ensure-goal (: (kb MAIN ()) p2 (LoopGoal $y) (STV 1.0 0.3)))))
+        ($g1 (ensure-goal ((LoopGoal $x) (kb MAIN ()) p1 (STV 1.0 1.0))))
+        ($g2 (ensure-goal ((LoopGoal $y) (kb MAIN ()) p2 (STV 1.0 0.3)))))
       (cons $g1 (cons $g2 (collapse (match &goal_by_id ($gid $_goal) $gid)))))
    (0 0 0))
 
@@ -41,8 +39,8 @@
    (let*
       (($_gclear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
-        ($g1 (ensure-goal (: (kb MAIN ()) p1 (LoopGoal) (STV 1.0 1.0))))
-        ($g2 (ensure-goal (: (kb ALT ()) p2 (LoopGoal) (STV 1.0 1.0)))))
+        ($g1 (ensure-goal ((LoopGoal) (kb MAIN ()) p1 (STV 1.0 1.0))))
+        ($g2 (ensure-goal ((LoopGoal) (kb ALT ()) p2 (STV 1.0 1.0)))))
       (cons $g1 (cons $g2 ())))
    (0 1))
 
@@ -51,8 +49,8 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
-        ($pid (store-leaf-proof $gid (: (kb MAIN ()) factA (Goal) (STV 1.0 0.8)))))
+        ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
+        ($pid (store-leaf-proof $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))))
       (proof-term-evidence-list (proof-ref $pid)))
    ((fact-ev (kb MAIN ()) factA (Goal))))
 
@@ -61,9 +59,9 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
-        ($pid-a (store-leaf-proof $gid (: (kb MAIN ()) (bench-base-fact demo 1 1) (Goal) (STV 1.0 0.8))))
-        ($pid-b (store-leaf-proof $gid (: (kb MAIN ()) (bench-base-fact demo 1 2) (Goal) (STV 1.0 0.7)))))
+        ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
+        ($pid-a (store-leaf-proof $gid ((Goal) (kb MAIN ()) (bench-base-fact demo 1 1) (STV 1.0 0.8))))
+        ($pid-b (store-leaf-proof $gid ((Goal) (kb MAIN ()) (bench-base-fact demo 1 2) (STV 1.0 0.7)))))
       (evidence-sets-overlap? (proof-evidence-by-id $pid-a) (proof-evidence-by-id $pid-b)))
    false)
 
@@ -72,8 +70,8 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
-        ($pid (store-leaf-proof $gid (: (kb MAIN ()) factA (Goal) (STV 1.0 0.8)))))
+        ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
+        ($pid (store-leaf-proof $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))))
       (materialize-proof $pid))
    factA)
 
@@ -82,19 +80,19 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
-        ($_weak (emit-leaf-result $gid (: (kb MAIN ()) sharedFact (Goal) (STV 1.0 0.6))))
-        ($_strong (emit-leaf-result $gid (: (kb MAIN ()) sharedFact (Goal) (STV 1.0 0.8)))))
+        ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
+        ($_weak (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6))))
+        ($_strong (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8)))))
       (goal-results $gid))
-   ((: (kb MAIN ()) sharedFact (Goal) (STV 1.0 0.8))))
+   (((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8))))
 
 !(test
    (let*
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
-        ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
-        ($_a (emit-leaf-result $gid (: (kb MAIN ()) factA (Goal) (STV 1.0 0.6))))
-        ($_b (emit-leaf-result $gid (: (kb MAIN ()) factB (Goal) (STV 1.0 0.8)))))
+        ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
+        ($_a (emit-leaf-result $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.6))))
+        ($_b (emit-leaf-result $gid ((Goal) (kb MAIN ()) factB (STV 1.0 0.8)))))
       (goal-results $gid))
-   ((: (kb MAIN ()) (merge/revision factB factA) (Goal) (STV 1.0 0.8461538461538461))))
+   (((Goal) (kb MAIN ()) (merge/revision factB factA) (STV 1.0 0.8461538461538461))))

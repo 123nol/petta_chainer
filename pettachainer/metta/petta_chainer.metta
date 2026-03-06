@@ -42,6 +42,8 @@
 
 !(bind! &bench_meta (new-space))
 
+!(bind! &rule_proof_ids (new-space))
+
 !(import! &self dist_formulas)
 !(import! &self tv_formulas)
 !(import! &self backward_chainer)
@@ -66,17 +68,27 @@
 
 (= (compileadd-add-all $acc $atom) (progn (add-to-kb $atom) $acc))
 
+(= (register-source-proof-id (: $prf $type $_tv))
+   (if (= $type (Implication (cons Premises $_premises) (cons Conclusions $_conclusions)))
+      (add-atom &rule_proof_ids ($prf true))
+      ()))
+
 (= (compileadd $kb $stmt)
    (let*
       (($atoms (collapse (mm2compile $kb $stmt)))
-        ($_ (fold-flat compileadd-add-all () $atoms))
+        ($iatoms (map-flat internalize-proof-structure $atoms))
+        ($eatoms (map-flat externalize-proof-structure $iatoms))
+        ($_ (fold-flat compileadd-add-all () $iatoms))
+        ($_ (register-source-proof-id $stmt))
         ($_ (process-on-add $kb $stmt)))
       (superpose
-         $atoms)))
+         $eatoms)))
 
 (= (query $steps $kb $stmt)
    (let*
-      (((cons (goal $query) $adds) (collapse (mm2compileQuery $kb $stmt)))
+      (($compiled (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt))))
+        ((cons (goal $query) $adds) $compiled)
         ($_ (inject-compiled-adds $adds))
-        ($res (reduce (chainer $steps $query))))
-      (pretty (superpose $res))))
+        ($res (reduce (chainer $steps $query)))
+        ($eres (map-flat externalize-proof-structure $res)))
+      (pretty (superpose $eres))))
