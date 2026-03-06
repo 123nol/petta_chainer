@@ -20,11 +20,6 @@
 
 (= (proof-children-by-id $pid) (match &proof_children ($pid $kids) $kids))
 
-(= (and-bundle-by-id $aid) (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
-
-(= (instantiate-aid-with-pids $aid $pid-list)
-   (instantiate-and-bundle (copy_term (and-bundle-by-id $aid)) $pid-list))
-
 (= (proof-unify-term $pid)
    (let*
       (($gid (proof-goal-by-id $pid))
@@ -46,7 +41,9 @@
 (= (materialize-proof-atom ($type $kb $prf $tv)) ($type $kb (materialize-proof-refs $prf) $tv))
 
 (= (materialize-rule-proof $aid $pid-list)
-   (case (instantiate-aid-with-pids $aid $pid-list) (
+   (case
+      (instantiate-and-bundle (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
+         $pid-list) (
         ((and-bundle ($_type $_kb $prf $_tv) $_rest) (materialize-proof-refs $prf))
         ($other $other))))
 
@@ -270,7 +267,7 @@
    (collapse
       (let*
          (($id (match &ccls_index ($goal $id) $id))
-           (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
+           ($args (match &rules ($id $goal $args) $args))
            ($bound (premises-expected-confidence $args))
            ($bundle (copy_term (and-bundle $goal $args))))
          (rule-option $id $bound $bundle))))
