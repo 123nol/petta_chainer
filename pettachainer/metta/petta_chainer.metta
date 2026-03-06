@@ -8,9 +8,35 @@
 !(import! &self chainer_utils)
 !(import! &self forward_chainer)
 
-!(bind! &goal_store (new-space))
+!(bind! &goal_by_id (new-space))
 
-!(bind! &proof_store (new-space))
+!(bind! &goal_lookup (new-space))
+
+!(bind! &goal_expanded (new-space))
+
+!(bind! &goal_pending_score (new-space))
+
+!(bind! &goal_waiter (new-space))
+
+!(bind! &and_node (new-space))
+
+!(bind! &frontier (new-space))
+
+!(bind! &goal_proof (new-space))
+
+!(bind! &proof_goal (new-space))
+
+!(bind! &proof_score (new-space))
+
+!(bind! &proof_evidence (new-space))
+
+!(bind! &proof_kind (new-space))
+
+!(bind! &proof_tv (new-space))
+
+!(bind! &proof_children (new-space))
+
+!(bind! &proof_status (new-space))
 
 !(bind! &particle_store (new-space))
 

@@ -30,16 +30,16 @@
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
+      (($_gclear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($g1 (ensure-goal (: (kb MAIN ()) p1 (LoopGoal $x) (STV 1.0 1.0))))
         ($g2 (ensure-goal (: (kb MAIN ()) p2 (LoopGoal $y) (STV 1.0 0.3)))))
-      (cons $g1 (cons $g2 (collapse (match &goal_store (goal-node $gid $_goal) $gid)))))
+      (cons $g1 (cons $g2 (collapse (match &goal_by_id ($gid $_goal) $gid)))))
    (0 0 0))
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
+      (($_gclear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($g1 (ensure-goal (: (kb MAIN ()) p1 (LoopGoal) (STV 1.0 1.0))))
         ($g2 (ensure-goal (: (kb ALT ()) p2 (LoopGoal) (STV 1.0 1.0)))))
@@ -48,8 +48,7 @@
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
-        ($_pclear (remove-all-atoms &proof_store))
+      (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
@@ -59,8 +58,7 @@
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
-        ($_pclear (remove-all-atoms &proof_store))
+      (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
@@ -71,8 +69,7 @@
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
-        ($_pclear (remove-all-atoms &proof_store))
+      (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
@@ -82,8 +79,7 @@
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
-        ($_pclear (remove-all-atoms &proof_store))
+      (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
@@ -94,8 +90,7 @@
 
 !(test
    (let*
-      (($_gclear (remove-all-atoms &goal_store))
-        ($_pclear (remove-all-atoms &proof_store))
+      (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal (: (kb MAIN ()) $prf (Goal) (STV 1.0 1.0))))
