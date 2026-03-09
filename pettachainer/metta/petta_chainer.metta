@@ -38,8 +38,6 @@
 
 !(bind! &proof_children (new-space))
 
-!(bind! &proof_status (new-space))
-
 !(bind! &particle_store (new-space))
 
 !(bind! &bench_meta (new-space))

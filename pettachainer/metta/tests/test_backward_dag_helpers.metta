@@ -92,6 +92,17 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
+        ($_strong (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8))))
+        ($_weak (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6)))))
+      (catch (get-state bwd_pid)))
+   1)
+
+!(test
+   (let*
+      (($_clear (clear-backward-state))
+        ($_gidreset (change-state! bwd_gid 0))
+        ($_pidreset (change-state! bwd_pid 0))
+        ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
         ($_a (emit-leaf-result $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.6))))
         ($_b (emit-leaf-result $gid ((Goal) (kb MAIN ()) factB (STV 1.0 0.8)))))
       (goal-results $gid))

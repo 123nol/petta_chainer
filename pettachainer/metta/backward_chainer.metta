@@ -124,11 +124,12 @@
                $parents)))))
 
 (= (direct-goal-results $steps $goal)
-   (if (= $goal (CPU $fun $args $_res)) ((CPU $fun $args (cpu-call $steps $fun $args)))
+   (if (= $goal (CPU $fun $args $_res)) (CPU $fun $args (cpu-call $steps $fun $args))
       (let ($type ($kbid $_ctx $_vars) $prf $tv) $goal
          (let $kb ($kbid $_ctx $_vars)
             (let $utype (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type) $type)
-               (collapse (match &kb ($utype $kb $prf $tv) ($type $kb $prf $tv))))))))
+               (match &kb ($utype $kb $prf $tv)
+                  ($type $kb $prf $tv)))))))
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv)) (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ())
@@ -150,50 +151,78 @@
             $pid)
          (let $_5 (add-atom &proof_kind ($pid (leaf $ev $result))) $pid))))
 
-(= (proof-overlap-dominates? $winner $loser)
+(= (proof-overlap-dominates-score? $winner-ev $winner-score $loser-ev $loser-score)
+   (and (evidence-sets-overlap? $winner-ev $loser-ev) (>= $winner-score $loser-score)))
+
+(= (goal-proof-candidate-step $ev $score (reject $dompid $rev-pruned) $oldpid) (reject $dompid $rev-pruned))
+(= (goal-proof-candidate-step $ev $score (accept $rev-pruned) $oldpid)
    (let*
-      (($evw (proof-evidence-by-id $winner))
-        ($evl (proof-evidence-by-id $loser))
-        ($overlap (evidence-sets-overlap? $evw $evl))
-        ($sw (proof-score-by-id $winner))
-        ($sl (proof-score-by-id $loser)))
-      (and $overlap (>= $sw $sl))))
+      (($old-ev (proof-evidence-by-id $oldpid))
+        ($old-score (proof-score-by-id $oldpid)))
+      (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) (reject $oldpid $rev-pruned)
+         (if (proof-overlap-dominates-score? $ev $score $old-ev $old-score)
+            (accept (cons $oldpid $rev-pruned))
+            (accept $rev-pruned)))))
 
-(= (prune-dominated-goal-proofs $gid $pid)
-   (progn
-      (collapse
-         (match &goal_proof ($gid $oldpid)
-            (if (proof-overlap-dominates? $pid $oldpid)
-               (progn (remove-atom &goal_proof ($gid $oldpid))
-                  (add-atom &proof_status ($oldpid (dominated $pid))))
-               ())))
-      ()))
+(= (classify-goal-proof-candidate $gid $ev $score)
+   (fold-flat (goal-proof-candidate-step $ev $score)
+      (accept ())
+      (collapse (match &goal_proof ($gid $oldpid) $oldpid))))
 
-(= (goal-proof-rejected? $gid $pid)
-   (not
-      (==
-         (collapse
-            (match &goal_proof ($gid $oldpid)
-               (if (proof-overlap-dominates? $oldpid $pid) $oldpid (empty))))
-         ())))
+(= (store-proof-tv $pid no-tv) ())
+(= (store-proof-tv $pid (with-tv $tv)) (add-atom &proof_tv ($pid $tv)))
 
-(= (attach-existing-goal-proofs $fid $gid)
-   (foreach-flat (|-> ($pid) (advance-frontier $fid $pid))
-      (collapse (match &goal_proof ($gid $pid) $pid))))
+(= (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
+   (let*
+      (($pid (next-pid))
+        ($_1 (add-atom &proof_goal ($pid $gid)))
+        ($_2 (add-atom &proof_kind ($pid $kind)))
+        ($_3 (store-proof-tv $pid $tv-state))
+        ($_4 (add-atom &proof_score ($pid $score)))
+        ($_5 (add-atom &proof_evidence ($pid $ev)))
+        ($_6 (add-atom &proof_children ($pid $children))))
+      $pid))
 
-(= (register-proof $gid $pid)
-   (if (goal-proof-rejected? $gid $pid) (progn (add-atom &proof_status ($pid (dominated existing))) ())
+(= (commit-proof-candidate $gid (reject $_dompid $_rev-pruned) $_candidate) ())
+(= (commit-proof-candidate $gid (accept $rev-pruned) (proof-candidate $kind $tv-state $score $ev $children))
+   (let $pid (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
       (progn
-         (prune-dominated-goal-proofs $gid $pid)
+         (foreach-flat (|-> ($oldpid) (remove-atom &goal_proof ($gid $oldpid))) $rev-pruned)
          (add-atom &goal_proof ($gid $pid))
-         (add-atom &proof_status ($pid live))
          (foreach-flat (|-> ($fid) (advance-frontier $fid $pid))
             (collapse (match &goal_waiter ($gid $fid) $fid))))))
 
-(= (emit-leaf-result $gid $result) (register-proof $gid (store-leaf-proof $gid $result)))
+(= (register-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
+   (commit-proof-candidate $gid
+      (classify-goal-proof-candidate $gid $ev $score)
+      (proof-candidate $kind
+         $tv-state
+         $score
+         $ev
+         $children)))
 
-(= (expand-direct-goal $steps $gid $goal)
-   (foreach-flat (|-> ($result) (emit-leaf-result $gid $result)) (direct-goal-results $steps $goal)))
+(= (leaf-proof-candidate $result)
+   (let*
+      (($score (term-confidence $result))
+        ($ev (leaf-evidence-for-result $result)))
+      (if (= $result ($_type ($_kbid $_ctx $_vars) $prf $tv))
+         (proof-candidate (leaf $ev $prf)
+            (with-tv $tv)
+            $score
+            $ev
+            ())
+         (proof-candidate (leaf $ev $result)
+            no-tv
+            $score
+            $ev
+            ()))))
+
+(= (attach-existing-goal-proofs $fid $gid)
+   (collapse (advance-frontier $fid (match &goal_proof ($gid $pid) $pid))))
+
+(= (emit-leaf-result $gid $result) (register-proof-candidate $gid (leaf-proof-candidate $result)))
+
+(= (expand-direct-goal $steps $gid $goal) (emit-leaf-result $gid (direct-goal-results $steps $goal)))
 
 (= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
 (= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
@@ -210,17 +239,16 @@
               (list-reverse $rev-pids)))
         ((and-bundle $_goal (cons $prem $_rest))
            (let*
-              (($gid (ensure-goal $prem)))
+              (($gid (ensure-goal $prem))
+                ($fid (next-fid))
+                ($stored-bundle (copy_term $bundle)))
               (if (goal-has-ancestor-seen? $parent-gid $gid ()) ()
-                 (let*
-                    (($fid (next-fid))
-                      ($stored-bundle (copy_term $bundle))
-                      ($_1 (add-atom &frontier ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids)))
-                      ($_2 (add-atom &goal_waiter ($gid $fid))))
-                    (progn
-                       (attach-existing-goal-proofs $fid $gid)
-                       (schedule-goal $score $gid)
-                       ()))))))))
+                 (progn
+                    (add-atom &frontier ($fid $parent-gid $aid $stored-bundle $score $seen $rev-pids))
+                    (add-atom &goal_waiter ($gid $fid))
+                    (attach-existing-goal-proofs $fid $gid)
+                    (schedule-goal $score $gid)
+                    ())))))))
 
 (= (frontier-state-by-id $fid)
    (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids)
@@ -258,16 +286,14 @@
          ())))
 
 (= (goal-rule-options $goal)
-   (collapse
-      (let*
-         (($id (match &ccls_index ($goal $id) $id))
-           (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
-           ($bound (premises-expected-confidence $args))
-           ($bundle (copy_term (and-bundle $goal $args))))
-         (rule-option $id $bound $bundle))))
+   (let*
+      (($id (match &ccls_index ($goal $id) $id))
+        (($_id $_matched-goal $args) (match &rules ($id $goal $args) ($_id $_matched-goal $args)))
+        ($bound (premises-expected-confidence $args))
+        ($bundle (copy_term (and-bundle $goal $args))))
+      (rule-option $id $bound $bundle)))
 
-(= (expand-rule-goal $parent-gid $goal)
-   (foreach-flat (|-> ($option) (register-rule-option $parent-gid $option)) (goal-rule-options $goal)))
+(= (expand-rule-goal $parent-gid $goal) (register-rule-option $parent-gid (goal-rule-options $goal)))
 
 (= (expand-goal $steps $gid)
    (if (goal-expanded? $gid) ()
@@ -275,8 +301,8 @@
          (($goal (goal-term-by-id $gid))
            ($_1 (add-atom &goal_expanded ($gid true))))
          (progn
-            (expand-direct-goal $steps $gid $goal)
-            (expand-rule-goal $gid $goal)
+            (collapse (expand-direct-goal $steps $gid $goal))
+            (collapse (expand-rule-goal $gid $goal))
             ()))))
 
 (= (search-goals $steps)
@@ -304,15 +330,12 @@
       $score
       $ev
       $pid-list)
-   (let*
-      (($pid (next-pid))
-        ($_1 (add-atom &proof_goal ($pid $parent-gid)))
-        ($_2 (add-atom &proof_kind ($pid (rule $aid))))
-        ($_3 (add-atom &proof_tv ($pid $tv)))
-        ($_4 (add-atom &proof_score ($pid $score)))
-        ($_5 (add-atom &proof_evidence ($pid $ev)))
-        ($_6 (add-atom &proof_children ($pid $pid-list))))
-      (register-proof $parent-gid $pid)))
+   (register-proof-candidate $parent-gid
+      (proof-candidate (rule $aid)
+         (with-tv $tv)
+         $score
+         $ev
+         $pid-list)))
 
 (= (clear-backward-state)
    (let*
@@ -330,8 +353,7 @@
         ($_pevidenceclear (remove-all-atoms &proof_evidence))
         ($_pkindclear (remove-all-atoms &proof_kind))
         ($_ptvclear (remove-all-atoms &proof_tv))
-        ($_pchildclear (remove-all-atoms &proof_children))
-        ($_pstatusclear (remove-all-atoms &proof_status)))
+        ($_pchildclear (remove-all-atoms &proof_children)))
       ()))
 
 (= (chainer $steps $goal)
