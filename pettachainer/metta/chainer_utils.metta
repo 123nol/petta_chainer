@@ -77,13 +77,11 @@
 
 (= (next-fid) (next-search-id bwd_fid))
 
-(= (proof-score-by-id $pid) (match &proof_score ($pid $score) $score))
+(= (proof-stats-by-id $pid) (match &proof_stats ($pid $score $ev) ($score $ev)))
 
 (= (proof-tv-by-id $pid)
    (let $tvs (collapse (once (match &proof_tv ($pid $tv) $tv)))
       (if (== $tvs ()) (STV 1.0 1.0) (car-atom $tvs))))
-
-(= (proof-evidence-by-id $pid) (match &proof_evidence ($pid $ev) $ev))
 
 (= (proof-kind-by-id $pid) (match &proof_kind ($pid $kind) $kind))
 
@@ -108,7 +106,7 @@
       ()))
 
 (= (proof-term-evidence-list $prf)
-   (if (= $prf (proof-ref $pid)) (proof-evidence-by-id $pid)
+   (if (= $prf (proof-ref $pid)) (snd (proof-stats-by-id $pid))
       (if (is-var $prf) ()
          (if (= $prf (merge/revision $left $right))
             (list-append (proof-term-evidence-list $left) (proof-term-evidence-list $right))

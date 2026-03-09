@@ -50,7 +50,13 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
-        ($pid (store-leaf-proof $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))))
+        ($pid
+           (store-proof-candidate $gid
+              (proof-candidate (leaf ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))
+                 (with-tv (STV 1.0 0.8))
+                 0.8
+                 ((fact-ev (kb MAIN ()) factA (Goal)))
+                 ()))))
       (proof-term-evidence-list (proof-ref $pid)))
    ((fact-ev (kb MAIN ()) factA (Goal))))
 
@@ -60,9 +66,21 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
-        ($pid-a (store-leaf-proof $gid ((Goal) (kb MAIN ()) (bench-base-fact demo 1 1) (STV 1.0 0.8))))
-        ($pid-b (store-leaf-proof $gid ((Goal) (kb MAIN ()) (bench-base-fact demo 1 2) (STV 1.0 0.7)))))
-      (evidence-sets-overlap? (proof-evidence-by-id $pid-a) (proof-evidence-by-id $pid-b)))
+        ($pid-a
+           (store-proof-candidate $gid
+              (proof-candidate (leaf ((Goal) (kb MAIN ()) (bench-base-fact demo 1 1) (STV 1.0 0.8)))
+                 (with-tv (STV 1.0 0.8))
+                 0.8
+                 ((fact-ev (kb MAIN ()) (bench-base-fact demo 1 1) (Goal)))
+                 ())))
+        ($pid-b
+           (store-proof-candidate $gid
+              (proof-candidate (leaf ((Goal) (kb MAIN ()) (bench-base-fact demo 1 2) (STV 1.0 0.7)))
+                 (with-tv (STV 1.0 0.7))
+                 0.7
+                 ((fact-ev (kb MAIN ()) (bench-base-fact demo 1 2) (Goal)))
+                 ()))))
+      (evidence-sets-overlap? (snd (proof-stats-by-id $pid-a)) (snd (proof-stats-by-id $pid-b))))
    false)
 
 !(test
@@ -71,7 +89,13 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
-        ($pid (store-leaf-proof $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))))
+        ($pid
+           (store-proof-candidate $gid
+              (proof-candidate (leaf ((Goal) (kb MAIN ()) factA (STV 1.0 0.8)))
+                 (with-tv (STV 1.0 0.8))
+                 0.8
+                 ((fact-ev (kb MAIN ()) factA (Goal)))
+                 ()))))
       (materialize-proof $pid))
    factA)
 
@@ -81,8 +105,26 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
-        ($_weak (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6))))
-        ($_strong (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8)))))
+        ($weak
+           (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6)))
+              (with-tv (STV 1.0 0.6))
+              0.6
+              ((fact-ev (kb MAIN ()) sharedFact (Goal)))
+              ()))
+        ($_weak
+           (commit-proof-candidate $gid
+              (classify-goal-proof-candidate $gid ((fact-ev (kb MAIN ()) sharedFact (Goal))) 0.6)
+              $weak))
+        ($strong
+           (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8)))
+              (with-tv (STV 1.0 0.8))
+              0.8
+              ((fact-ev (kb MAIN ()) sharedFact (Goal)))
+              ()))
+        ($_strong
+           (commit-proof-candidate $gid
+              (classify-goal-proof-candidate $gid ((fact-ev (kb MAIN ()) sharedFact (Goal))) 0.8)
+              $strong)))
       (goal-results $gid))
    (((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8))))
 
@@ -92,8 +134,26 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
-        ($_strong (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8))))
-        ($_weak (emit-leaf-result $gid ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6)))))
+        ($strong
+           (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.8)))
+              (with-tv (STV 1.0 0.8))
+              0.8
+              ((fact-ev (kb MAIN ()) sharedFact (Goal)))
+              ()))
+        ($_strong
+           (commit-proof-candidate $gid
+              (classify-goal-proof-candidate $gid ((fact-ev (kb MAIN ()) sharedFact (Goal))) 0.8)
+              $strong))
+        ($weak
+           (proof-candidate (leaf ((Goal) (kb MAIN ()) sharedFact (STV 1.0 0.6)))
+              (with-tv (STV 1.0 0.6))
+              0.6
+              ((fact-ev (kb MAIN ()) sharedFact (Goal)))
+              ()))
+        ($_weak
+           (commit-proof-candidate $gid
+              (classify-goal-proof-candidate $gid ((fact-ev (kb MAIN ()) sharedFact (Goal))) 0.6)
+              $weak)))
       (catch (get-state bwd_pid)))
    1)
 
@@ -103,7 +163,25 @@
         ($_gidreset (change-state! bwd_gid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($gid (ensure-goal ((Goal) (kb MAIN ()) $prf (STV 1.0 1.0))))
-        ($_a (emit-leaf-result $gid ((Goal) (kb MAIN ()) factA (STV 1.0 0.6))))
-        ($_b (emit-leaf-result $gid ((Goal) (kb MAIN ()) factB (STV 1.0 0.8)))))
+        ($a
+           (proof-candidate (leaf ((Goal) (kb MAIN ()) factA (STV 1.0 0.6)))
+              (with-tv (STV 1.0 0.6))
+              0.6
+              ((fact-ev (kb MAIN ()) factA (Goal)))
+              ()))
+        ($_a
+           (commit-proof-candidate $gid
+              (classify-goal-proof-candidate $gid ((fact-ev (kb MAIN ()) factA (Goal))) 0.6)
+              $a))
+        ($b
+           (proof-candidate (leaf ((Goal) (kb MAIN ()) factB (STV 1.0 0.8)))
+              (with-tv (STV 1.0 0.8))
+              0.8
+              ((fact-ev (kb MAIN ()) factB (Goal)))
+              ()))
+        ($_b
+           (commit-proof-candidate $gid
+              (classify-goal-proof-candidate $gid ((fact-ev (kb MAIN ()) factB (Goal))) 0.8)
+              $b)))
       (goal-results $gid))
    (((Goal) (kb MAIN ()) (merge/revision factB factA) (STV 1.0 0.8461538461538461))))

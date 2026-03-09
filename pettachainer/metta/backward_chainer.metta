@@ -27,7 +27,7 @@
       (if (= $goal ($type ($kbid $_ctx $_vars) $_prf $_goal-tv))
          ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)
          (case $kind (
-              ((leaf $_ev $term) $term)
+              ((leaf $term) $term)
               ($other (empty)))))))
 
 (= (materialize-proof-refs $term)
@@ -47,9 +47,9 @@
 
 (= (materialize-proof $pid)
    (case (proof-kind-by-id $pid) (
-        ((leaf $_ev $raw) $raw)
+        ((leaf ($_type $_kb $prf $_tv)) $prf)
+        ((leaf $raw) $raw)
         ((rule $aid) (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
-        ((revision $left $right) (merge/revision (materialize-proof $left) (materialize-proof $right)))
         ($other $other))))
 
 (= (proof-output-atom $pid)
@@ -135,38 +135,19 @@
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv)) (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ())
       ()))
 
-(= (store-leaf-proof $gid $result)
-   (let*
-      (($pid (next-pid))
-        ($score (term-confidence $result))
-        ($ev (leaf-evidence-for-result $result))
-        ($_1 (add-atom &proof_goal ($pid $gid)))
-        ($_2 (add-atom &proof_score ($pid $score)))
-        ($_3 (add-atom &proof_evidence ($pid $ev)))
-        ($_4 (add-atom &proof_children ($pid ()))))
-      (if (= $result ($_type ($_kbid $_ctx $_vars) $prf $tv))
-         (let*
-            (($_5 (add-atom &proof_kind ($pid (leaf $ev $prf))))
-              ($_6 (add-atom &proof_tv ($pid $tv))))
-            $pid)
-         (let $_5 (add-atom &proof_kind ($pid (leaf $ev $result))) $pid))))
+(= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
+   (and (evidence-sets-overlap? $old-ev $new-ev) (>= $old-score $new-score)))
 
-(= (proof-overlap-dominates-score? $winner-ev $winner-score $loser-ev $loser-score)
-   (and (evidence-sets-overlap? $winner-ev $loser-ev) (>= $winner-score $loser-score)))
-
-(= (goal-proof-candidate-step $ev $score (reject $dompid $rev-pruned) $oldpid) (reject $dompid $rev-pruned))
-(= (goal-proof-candidate-step $ev $score (accept $rev-pruned) $oldpid)
-   (let*
-      (($old-ev (proof-evidence-by-id $oldpid))
-        ($old-score (proof-score-by-id $oldpid)))
-      (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) (reject $oldpid $rev-pruned)
-         (if (proof-overlap-dominates-score? $ev $score $old-ev $old-score)
-            (accept (cons $oldpid $rev-pruned))
-            (accept $rev-pruned)))))
+(= (goal-proof-candidate-step $ev $score false $_oldpid) false)
+(= (goal-proof-candidate-step $ev $score $rev-pruned $oldpid)
+   (let ($old-score $old-ev) (proof-stats-by-id $oldpid)
+      (if (proof-overlap-dominates-score? $old-ev $old-score $ev $score) false
+         (if (proof-overlap-dominates-score? $ev $score $old-ev $old-score) (cons $oldpid $rev-pruned)
+            $rev-pruned))))
 
 (= (classify-goal-proof-candidate $gid $ev $score)
    (fold-flat (goal-proof-candidate-step $ev $score)
-      (accept ())
+      ()
       (collapse (match &goal_proof ($gid $oldpid) $oldpid))))
 
 (= (store-proof-tv $pid no-tv) ())
@@ -178,55 +159,34 @@
         ($_1 (add-atom &proof_goal ($pid $gid)))
         ($_2 (add-atom &proof_kind ($pid $kind)))
         ($_3 (store-proof-tv $pid $tv-state))
-        ($_4 (add-atom &proof_score ($pid $score)))
-        ($_5 (add-atom &proof_evidence ($pid $ev)))
-        ($_6 (add-atom &proof_children ($pid $children))))
+        ($_4 (add-atom &proof_stats ($pid $score $ev)))
+        ($_5 (add-atom &proof_children ($pid $children))))
       $pid))
 
-(= (commit-proof-candidate $gid (reject $_dompid $_rev-pruned) $_candidate) ())
-(= (commit-proof-candidate $gid (accept $rev-pruned) (proof-candidate $kind $tv-state $score $ev $children))
+(= (commit-proof-candidate $gid false $_candidate) ())
+(= (commit-proof-candidate $gid $rev-pruned (proof-candidate $kind $tv-state $score $ev $children))
    (let $pid (store-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
       (progn
          (foreach-flat (|-> ($oldpid) (remove-atom &goal_proof ($gid $oldpid))) $rev-pruned)
          (add-atom &goal_proof ($gid $pid))
-         (foreach-flat (|-> ($fid) (advance-frontier $fid $pid))
-            (collapse (match &goal_waiter ($gid $fid) $fid))))))
-
-(= (register-proof-candidate $gid (proof-candidate $kind $tv-state $score $ev $children))
-   (commit-proof-candidate $gid
-      (classify-goal-proof-candidate $gid $ev $score)
-      (proof-candidate $kind
-         $tv-state
-         $score
-         $ev
-         $children)))
-
-(= (leaf-proof-candidate $result)
-   (let*
-      (($score (term-confidence $result))
-        ($ev (leaf-evidence-for-result $result)))
-      (if (= $result ($_type ($_kbid $_ctx $_vars) $prf $tv))
-         (proof-candidate (leaf $ev $prf)
-            (with-tv $tv)
-            $score
-            $ev
-            ())
-         (proof-candidate (leaf $ev $result)
-            no-tv
-            $score
-            $ev
-            ()))))
+         (collapse (advance-frontier (match &goal_waiter ($gid $fid) $fid) $pid)))))
 
 (= (attach-existing-goal-proofs $fid $gid)
    (collapse (advance-frontier $fid (match &goal_proof ($gid $pid) $pid))))
 
-(= (emit-leaf-result $gid $result) (register-proof-candidate $gid (leaf-proof-candidate $result)))
-
-(= (expand-direct-goal $steps $gid $goal) (emit-leaf-result $gid (direct-goal-results $steps $goal)))
-
-(= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
-(= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
-   (if (= $prem (proof-unify-term $pid)) (and-bundle $goal $rest) ()))
+(= (expand-direct-goal $steps $gid $goal)
+   (let*
+      (($result (direct-goal-results $steps $goal))
+        ($score (term-confidence $result))
+        ($ev (leaf-evidence-for-result $result))
+        ($tv-state (if (= $result ($_type ($_kbid $_ctx $_vars) $prf $tv)) (with-tv $tv) no-tv)))
+      (commit-proof-candidate $gid
+         (classify-goal-proof-candidate $gid $ev $score)
+         (proof-candidate (leaf $result)
+            $tv-state
+            $score
+            $ev
+            ()))))
 
 (= (spawn-frontier $parent-gid $aid $bundle $score $seen $rev-pids)
    (case $bundle (
@@ -259,11 +219,14 @@
          $seen
          $rev-pids)))
 
+(= (advance-frontier-bundle (and-bundle $_goal ()) $_pid) ())
+(= (advance-frontier-bundle (and-bundle $goal (cons $prem $rest)) $pid)
+   (if (= $prem (proof-unify-term $pid)) (and-bundle $goal $rest) ()))
+
 (= (advance-frontier $fid $pid)
    (let*
       (((frontier-state $parent-gid $aid $bundle $score $seen $rev-pids) (frontier-state-by-id $fid))
-        ($pev (proof-evidence-by-id $pid))
-        ($pscore (proof-score-by-id $pid)))
+        (($pscore $pev) (proof-stats-by-id $pid)))
       (if (evidence-sets-overlap? $seen $pev) ()
          (let $next-bundle (advance-frontier-bundle (copy_term $bundle) $pid)
             (if (== $next-bundle ()) ()
@@ -330,7 +293,8 @@
       $score
       $ev
       $pid-list)
-   (register-proof-candidate $parent-gid
+   (commit-proof-candidate $parent-gid
+      (classify-goal-proof-candidate $parent-gid $ev $score)
       (proof-candidate (rule $aid)
          (with-tv $tv)
          $score
@@ -349,8 +313,7 @@
         ($_frontierclear (remove-all-atoms &frontier))
         ($_gproofclear (remove-all-atoms &goal_proof))
         ($_pgoalclear (remove-all-atoms &proof_goal))
-        ($_pscoreclear (remove-all-atoms &proof_score))
-        ($_pevidenceclear (remove-all-atoms &proof_evidence))
+        ($_pstatsclear (remove-all-atoms &proof_stats))
         ($_pkindclear (remove-all-atoms &proof_kind))
         ($_ptvclear (remove-all-atoms &proof_tv))
         ($_pchildclear (remove-all-atoms &proof_children)))

@@ -16,6 +16,8 @@ If you have to choose between 2 ways to do something always pick the one that is
 Don't take any shortcuts. Hard things are worth doing right. And the best solution is usually the simplest but getting there takes effort.
 
 Write code in the cleaned-up style from the start instead of adding helpers and removing them later.
+If a helper becomes unused or survives only because tests still call it, delete it and rewrite the tests.
+Do not keep dead helpers around as test scaffolding.
 
 Prefer fewer named functions.
 Inline single-use wrappers, trivial aliases, and helpers that only rename one match, one constructor, or one expression.
