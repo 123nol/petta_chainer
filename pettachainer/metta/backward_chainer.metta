@@ -1,11 +1,5 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
-(= (backward-load-agenda)
-   (let $magenda (catch (get-state bwd_agenda))
-      (if-error $magenda (empty_heap) $magenda)))
-
-(= (backward-save-agenda $agenda) (change-state! bwd_agenda $agenda))
-
 (= (goal-expanded? $gid)
    (not (== (collapse (once (match &goal_expanded ($gid true) true))) ())))
 
@@ -118,16 +112,6 @@
                  ($_set (add-atom &goal_pending_score ($gid $score))))
                $nagenda)))))
 
-(= (schedule-goal $score $gid)
-   (if (goal-expanded? $gid) ()
-      (let $current (goal-pending-score-of $gid)
-         (if (>= $current $score) ()
-            (let*
-               (($agenda (backward-load-agenda))
-                 ($nagenda (schedule-goal-heap $agenda $score $gid))
-                 ($_save (backward-save-agenda $nagenda)))
-               ())))))
-
 (= (frontier-ancestor-set $parent-gid $parent-ancestors)
    (list_to_set (cons $parent-gid $parent-ancestors)))
 
@@ -237,27 +221,17 @@
       $rev-pruned
       (proof-candidate $kind $tv-state $score $ev $children))
    (if (== $rev-pruned false) ()
-      (let*
-         (($agenda (backward-load-agenda))
-           ($nagenda
-              (commit-proof-candidate-heap $agenda
-                 $gid
-                 $rev-pruned
-                 (proof-candidate $kind $tv-state $score $ev $children)))
-           ($_save (backward-save-agenda $nagenda)))
+      (let $_
+         (commit-proof-candidate-heap (empty_heap)
+            $gid
+            $rev-pruned
+            (proof-candidate $kind $tv-state $score $ev $children))
          ())))
 
 (= (attach-existing-goal-proofs-heap $agenda $fid $gid)
    (let $summary-pid (goal-summary-pid $gid)
       (if (== $summary-pid ()) $agenda
          (advance-frontier-heap $agenda $fid $summary-pid))))
-
-(= (attach-existing-goal-proofs $fid $gid)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda (attach-existing-goal-proofs-heap $agenda $fid $gid))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
 
 (= (expand-direct-goal-result-heap $agenda $gid $result)
    (let*
@@ -274,13 +248,6 @@
    (fold-flat (|-> ($acc $result) (expand-direct-goal-result-heap $acc $gid $result))
       $agenda
       (collapse (direct-goal-results $steps $goal))))
-
-(= (expand-direct-goal $steps $gid $goal)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda (expand-direct-goal-heap $agenda $steps $gid $goal))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
 
 (=
    (build-parent-proof-heap $agenda
@@ -334,21 +301,6 @@
                       ($nagenda (schedule-goal-heap $agenda1 $score $gid)))
                     $nagenda)))))))
 
-(= (spawn-frontier $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda
-           (spawn-frontier-heap $agenda
-              $parent-gid
-              $aid
-              $bundle
-              $score
-              $seen
-              $rev-pids
-              $ancestors))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
-
 (= (frontier-state-by-id $fid)
    (match &frontier ($fid $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)
       (frontier-state $parent-gid $aid $bundle $score $seen $rev-pids $ancestors)))
@@ -373,20 +325,6 @@
             (list_to_set (list-append $seen $pev))
             (cons $pid $rev-pids)
             $ancestors))))
-
-(= (advance-frontier $fid $pid)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda (advance-frontier-heap $agenda $fid $pid))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
-
-(= (expand-rule-goal $parent-gid $goal)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda (expand-rule-goal-heap $agenda $parent-gid $goal))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
 
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (let $lst
@@ -413,13 +351,6 @@
            ($nagenda (expand-rule-goal-heap $agenda1 $gid $goal)))
          $nagenda)))
 
-(= (expand-goal $steps $gid)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda (expand-goal-heap $agenda $steps $gid))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
-
 (= (search-goals-heap $steps $agenda)
    (if (or (<= $steps 0) (== (heap_size (@ $agenda_head $agenda)) 0)) $agenda
       (let*
@@ -434,38 +365,11 @@
                (search-goals-heap (- $steps 1) $nagenda))
             (search-goals-heap $steps $rest)))))
 
-(= (search-goals $steps)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda (search-goals-heap $steps $agenda))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
-
 (= (instantiate-and-bundle (and-bundle $goal ()) ()) (and-bundle $goal ()))
 (= (instantiate-and-bundle (and-bundle $goal (cons $prem $rest)) (cons $pid $pids))
    (if (= $prem (proof-unify-term $pid))
       (instantiate-and-bundle (and-bundle $goal $rest) $pids)
       (empty)))
-
-(=
-   (build-parent-proof $parent-gid
-      $aid
-      (and-bundle ($_type ($_kbid $_ctx $_vars) $_prf $tv) ())
-      $score
-      $ev
-      $pid-list)
-   (let*
-      (($agenda (backward-load-agenda))
-        ($nagenda
-           (build-parent-proof-heap $agenda
-              $parent-gid
-              $aid
-              (and-bundle ($_type ($_kbid $_ctx $_vars) $_prf $tv) ())
-              $score
-              $ev
-              $pid-list))
-        ($_save (backward-save-agenda $nagenda)))
-      ()))
 
 (= (clear-backward-state)
    (let*
@@ -495,8 +399,7 @@
         ($_pidreset (change-state! bwd_pid 0))
         ($root-gid (ensure-goal $goal))
         ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
-        ($agenda1 (if (<= $steps 0) $agenda0 (search-goals-heap (+ $steps 1) $agenda0)))
-        ($_save (backward-save-agenda $agenda1)))
+        ($agenda1 (if (<= $steps 0) $agenda0 (search-goals-heap (+ $steps 1) $agenda0))))
       (let $results (goal-results $root-gid) $results)))
 
 (= (unwrap $x) (if (== $x #) $any $x))
