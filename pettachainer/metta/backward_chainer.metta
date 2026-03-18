@@ -128,7 +128,7 @@
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
-      (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ())
+      (if (contains-hash? $type) () (cons (fact-ev ($kbid $_ctx $_vars) $prf $type) ()))
       ()))
 
 (= (proof-overlap-dominates-score? $old-ev $old-score $new-ev $new-score)
@@ -352,7 +352,7 @@
          $nagenda)))
 
 (= (search-goals-heap $steps $agenda)
-   (if (or (<= $steps 0) (== (heap_size (@ $agenda_head $agenda)) 0)) $agenda
+   (if (or (<= $steps 0) (== (heap_size $agenda) 0)) $agenda
       (let*
          (($rest (get_from_heap $agenda $_priority $item))
            ((qitem $score $gid) $item)
