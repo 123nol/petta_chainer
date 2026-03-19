@@ -191,6 +191,9 @@
 (= (toQuery $elem)
    (if (is-var $elem) # (if (=? $elem (exists $_1 $_2 $_3)) $var $elem)))
 
+(= (disable-inversion-proof-id? $prf)
+   (or (= $prf (mined_implication $_ $_)) (= $prf (no_inverse $_))))
+
 (= (inverse-implication $kb $prf $a $b $itv)
    (let*
       (($a1 (map-nested2 toQuery $a))
@@ -221,13 +224,15 @@
                            (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
                         (if (is-var $a) (empty)
                            (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
-                        (if (not (= $prf (mined_implication $_ $_)))
+                        (if (not (disable-inversion-proof-id? $prf))
                            (inverse-implication $kb $prf $na $b $tv)
                            (empty))
-                        (if (is-var $na) (empty)
+                        (if (or (disable-inversion-proof-id? $prf) (is-var $na))
+                           (empty)
                            (compile-outputs
                               (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
-                        (if (is-var $b) (empty) (compile-inputs (: $pb2 $b $btv2))))))
+                        (if (or (disable-inversion-proof-id? $prf) (is-var $b)) (empty)
+                           (compile-inputs (: $pb2 $b $btv2))))))
          (superpose ((() |- ((: ($kb MAIN Nil) $prf $Type $tv)))
                      (compile-outputs (: ($kb MAIN Nil) $prf $Type $tv)))))))
 
