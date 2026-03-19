@@ -126,6 +126,17 @@
                (if (is-expr $head) (cdr-atom $prf) ()))))
       ()))
 
+(= (proof-term-leaf-head? $head) (is-member $head (() fact-ev CPU STV)))
+
+(= (proof-term-children-in-kb $kb $prf)
+   (if (is-expr $prf)
+      (let $head (car-atom $prf)
+         (if (== $head conjunction) (cdr-atom $prf)
+            (if (== $head rule-proof) (cdr-atom (cdr-atom $prf))
+               (if (is-expr $head) (cdr-atom $prf)
+                  (if (proof-term-leaf-head? $head) () (cdr-atom $prf))))))
+      ()))
+
 (= (proof-term-evidence-list $prf)
    (if (= $prf (proof-ref $pid)) (snd (proof-stats-by-id $pid))
       (if (is-var $prf) ()
@@ -140,8 +151,22 @@
                      ()
                      $children)))))))
 
-(= (proof-atom-evidence-set ($_type $_kb $prf $_tv))
-   (list_to_set (proof-term-evidence-list $prf)))
+(= (proof-term-evidence-list-in-kb $kb $prf)
+   (if (= $prf (proof-ref $pid)) (snd (proof-stats-by-id $pid))
+      (if (is-var $prf) ()
+         (if (= $prf (merge/revision $left $right))
+            (list-append (proof-term-evidence-list-in-kb $kb $left)
+               (proof-term-evidence-list-in-kb $kb $right))
+            (let $children (proof-term-children-in-kb $kb $prf)
+               (if (== $children ()) (cons $prf ())
+                  (fold-flat
+                     (|-> ($acc $child)
+                        (list-append $acc (proof-term-evidence-list-in-kb $kb $child)))
+                     ()
+                     $children)))))))
+
+(= (proof-atom-evidence-set ($_type $kb $prf $_tv))
+   (list_to_set (proof-term-evidence-list-in-kb $kb $prf)))
 
 (= (evidence-sets-overlap? $set-a $set-b)
    (not (== (intersection-atom $set-a $set-b) ())))

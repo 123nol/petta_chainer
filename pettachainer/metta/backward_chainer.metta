@@ -352,9 +352,7 @@
    (if (or (<= $steps 0) (== (heap_size $agenda) 0)) $agenda
       (let*
          (($rest (get_from_heap $agenda $_priority $item))
-           ((qitem $score $gid) $item)
-           (trace
-              (trace! (pop $score (match &goal_by_id ($gid $goal) ($gid $goal))) trace)))
+           ((qitem $score $gid) $item))
          (if (and (not (goal-expanded? $gid)) (== (goal-pending-score-of $gid) $score))
             (let*
                (($_clear (clear-goal-pending-score $gid))
