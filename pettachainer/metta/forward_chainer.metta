@@ -1,5 +1,28 @@
 !(import_prolog_function nth0)
 
+(= (forward-type-trigger-key $kbid $type)
+   (if (is-var $type) (fwd_trigger $kbid any)
+      (if (is-expr $type)
+         (let $head (car-atom $type)
+            (if (is-var $head) (fwd_trigger $kbid any) (fwd_trigger $kbid $head)))
+         (fwd_trigger $kbid $type))))
+
+(= (forward-indexable-premise-key $prem)
+   (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv))
+      (forward-type-trigger-key $kbid $_type)
+      (if (= $prem (: ($kbid $_ctx $_vars) $_prf $type $_tv))
+         (forward-type-trigger-key $kbid $type)
+         ())))
+
+(= (forward-premise-index-key $prem)
+   (let $key (forward-indexable-premise-key $prem)
+      (if (== $key ()) fwd_trigger_any $key)))
+
+(= (forward-premise-wildcard-key $prem)
+   (if (= $prem ($_type ($kbid $_ctx $_vars) $_prf $_tv)) (fwd_trigger $kbid any)
+      (if (= $prem (: ($kbid $_ctx $_vars) $_prf $type $_tv)) (fwd_trigger $kbid any)
+         fwd_trigger_any)))
+
 (= (forward-load-agenda $kb)
    (let $magenda (catch (get-state (atom_concat fwd_agenda_ $kb)))
       (if-error $magenda (empty_heap) $magenda)))
@@ -90,13 +113,23 @@
         ($_ (add-atom &kb $merged-fact)))
       (if (== $hits ()) (agenda-push-fact-best $agenda $merged-fact) $agenda)))
 
-(= (forward-rule-results $steps $kb $fact)
+(= (forward-rule-results-for-key $steps $kb $fact $key)
    (collapse
       (let*
-         (($id (match prem_index ($fact $id $idx) $id))
+         ((($id $idx) (match prem_index ($key $fact $id $idx) ($id $idx)))
            (($id $ccls $prems) (match rules ($id $ccls $prems) ($id $ccls $prems)))
            ($rprems (nth0 $idx $prems $fact)))
          (forward-satisfy-premises $steps $rprems $ccls))))
+
+(= (forward-rule-results $steps $kb $fact)
+   (let*
+      (($key (forward-premise-index-key $fact))
+        ($wildcard-key (forward-premise-wildcard-key $fact))
+        ($direct (forward-rule-results-for-key $steps $kb $fact $key))
+        ($wildcard
+           (if (== $key $wildcard-key) (empty)
+              (forward-rule-results-for-key $steps $kb $fact $wildcard-key))))
+      (union-atom $direct $wildcard)))
 
 (= (forward-loop $steps $kb $agenda)
    (if (or (== (heap_size $agenda) 0) (<= $steps 0)) $agenda

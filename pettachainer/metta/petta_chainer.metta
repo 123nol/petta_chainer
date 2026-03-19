@@ -18,7 +18,9 @@
       (progn (change-state! ruleid (+ $n 1)) $n)))
 
 (= (add-prem $vars $id $idx $prem)
-   (progn (add-atom prem_index ($prem $id $idx)) (+ $idx 1)))
+   (let $key (forward-indexable-premise-key $prem)
+      (progn (if (== $key ()) () (add-atom prem_index ($key $prem $id $idx)))
+         (+ $idx 1))))
 
 (= (add-to-kb $expr)
    (if (= $expr (rules ($args |- $ccls)))
