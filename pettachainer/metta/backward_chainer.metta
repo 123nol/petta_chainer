@@ -16,17 +16,18 @@
 
 (= (proof-goal-by-id $pid) (match &proof_goal ($pid $gid) $gid))
 
-(= (proof-unify-term $pid)
-   (let*
-      (($gid (proof-goal-by-id $pid))
-        ($goal (goal-term-by-id $gid))
-        ($kind (proof-kind-by-id $pid))
-        ($tv (proof-tv-by-id $pid)))
-      (if (= $goal ($type ($kbid $_ctx $_vars) $_prf $_goal-tv))
-         ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)
-         (case $kind (
-              ((leaf $term) $term)
-              ($other (empty)))))))
+(= (proof-output-term $pid $term)
+   (if (= $term ($type ($kbid $_ctx $_vars) $_prf $tv))
+      ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)
+      $term))
+
+(= (proof-output-atom $pid)
+   (case (proof-kind-by-id $pid) (
+        ((leaf $term) (proof-output-term $pid $term))
+        ((rule $aid $term) (proof-output-term $pid $term))
+        ($other (empty)))))
+
+(= (proof-unify-term $pid) (proof-output-atom $pid))
 
 (= (materialize-proof-refs $term)
    (if (= $term (proof-ref $pid)) (materialize-proof-refs (materialize-proof $pid))
@@ -51,26 +52,50 @@
 
 (= (materialize-proof $pid)
    (case (proof-kind-by-id $pid) (
-        ((leaf ($_type $_kb $prf $_tv)) $prf)
-        ((leaf $raw) $raw)
-        ((rule $aid)
+        ((leaf $raw) (if (= $raw ($_type ($_kbid $_ctx $_vars) $prf $_tv)) $prf $raw))
+        ((rule $aid $_term)
            (materialize-rule-proof $aid (match &proof_children ($pid $kids) $kids)))
         ($other $other))))
-
-(= (proof-output-atom $pid)
-   (let*
-      (($gid (proof-goal-by-id $pid))
-        (($type ($kbid $_ctx $_vars) $_prf $_goal-tv) (goal-term-by-id $gid))
-        ($tv (proof-tv-by-id $pid)))
-      ($type ($kbid $_ctx $_vars) (proof-ref $pid) $tv)))
 
 (= (goal-summary-pid $gid)
    (let $hits (collapse (once (match &goal_summary_proof ($gid $pid) $pid)))
       (if (== $hits ()) () (car-atom $hits))))
 
+(= (goal-term-has-type-vars? $goal)
+   (if (= $goal ($type ($_kbid $_ctx $_vars) $_prf $_tv))
+      (not (== (extract-vars $type) ()))
+      false))
+
+(= (goal-open-index-term $goal)
+   (if (= $goal ($type ($kbid $_ctx $_vars) $_prf $_tv))
+      ((map-nested2 toQuery $type) ($kbid $qctx $qvars) $qprf $qtv)
+      $goal))
+
+(= (goal-has-type-vars? $gid) (goal-term-has-type-vars? (goal-term-by-id $gid)))
+
+(= (goal-result-pids $gid)
+   (if (goal-has-type-vars? $gid) (collapse (match &goal_proof ($gid $pid) $pid))
+      (let $pid (goal-summary-pid $gid) (if (== $pid ()) () (cons $pid ())))))
+
+(= (goal-open-results-merge $new ()) (cons $new ()))
+(= (goal-open-results-merge $new (cons $old $rest))
+   (if (goal-key-eq? $new $old) (cons (merge-proof-atoms $old $new) $rest)
+      (cons $old (goal-open-results-merge $new $rest))))
+
+(= (goal-open-result-atoms ()) ())
+(= (goal-open-result-atoms (cons $pid $rest))
+   (goal-open-results-merge (proof-output-atom $pid) (goal-open-result-atoms $rest)))
+
+(= (materialize-proof-atoms ()) ())
+(= (materialize-proof-atoms (cons $atom $rest))
+   (cons (materialize-proof-atom $atom) (materialize-proof-atoms $rest)))
+
 (= (goal-results $gid)
-   (let $pid (goal-summary-pid $gid)
-      (if (== $pid ()) () (cons (materialize-proof-atom (proof-output-atom $pid)) ()))))
+   (if (goal-has-type-vars? $gid)
+      (materialize-proof-atoms (goal-open-result-atoms (goal-result-pids $gid)))
+      (let $pid (goal-summary-pid $gid)
+         (if (== $pid ()) ()
+            (cons (materialize-proof-atom (proof-output-atom $pid)) ())))))
 
 (= (ensure-goal $goal)
    (let $hits
@@ -262,18 +287,29 @@
       $agenda
       (collapse (direct-goal-results $steps $goal))))
 
+(= (instantiated-bundle-goal $aid $pid-list)
+   (case
+      (instantiate-and-bundle
+         (copy_term (match &and_node ($aid $_parent $_rule $_bound $bundle) $bundle))
+         $pid-list) (
+        ((and-bundle $goal $_rest) $goal)
+        ($other $other))))
+
 (=
    (build-parent-proof-heap $agenda
       $parent-gid
       $aid
-      (and-bundle ($_type ($_kbid $_ctx $_vars) $_prf $tv) ())
+      (and-bundle $_goal ())
       $score
       $ev
       $pid-list)
-   (commit-proof-candidate-heap $agenda
-      $parent-gid
-      (classify-goal-proof-candidate $parent-gid $ev $score)
-      (proof-candidate (rule $aid) (with-tv $tv) $score $ev $pid-list)))
+   (let*
+      (($goal (instantiated-bundle-goal $aid $pid-list))
+        (($_type ($_kbid $_ctx $_vars) $_prf $tv) $goal))
+      (commit-proof-candidate-heap $agenda
+         $parent-gid
+         (classify-goal-proof-candidate $parent-gid $ev $score)
+         (proof-candidate (rule $aid $goal) (with-tv $tv) $score $ev $pid-list))))
 
 (= (spawn-frontier-heap $agenda $parent-gid $aid $bundle $score $seen $rev-pids)
    (case $bundle (
@@ -326,10 +362,16 @@
 
 (= (expand-rule-goal-heap $agenda $parent-gid $goal)
    (let $lst
-      (collapse
-         (match ccls_index ($goal $rule-id)
-            (match rules ($rule-id $goal $args)
-               ($args $goal $parent-gid $rule-id))))
+      (if (goal-term-has-type-vars? $goal)
+         (collapse
+            (let $index-goal (goal-open-index-term $goal)
+               (match ccls_index ($index-goal $rule-id)
+                  (match rules ($rule-id $matched-goal $args)
+                     ($args $matched-goal $parent-gid $rule-id)))))
+         (collapse
+            (match ccls_index ($goal $rule-id)
+               (match rules ($rule-id $matched-goal $args)
+                  ($args $matched-goal $parent-gid $rule-id)))))
       (fold-flat expand-rule-goal-fold $agenda $lst)))
 
 (= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
