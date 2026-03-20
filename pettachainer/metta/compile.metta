@@ -191,6 +191,16 @@
 (= (toQuery $elem)
    (if (is-var $elem) # (if (=? $elem (exists $_1 $_2 $_3)) $var $elem)))
 
+(= (contains-cpu-list? ()) false)
+(= (contains-cpu-list? (cons $head $tail))
+   (or (contains-cpu? $head) (contains-cpu-list? $tail)))
+
+(= (contains-cpu? $term)
+   (if (is-var $term) false
+      (if (is-expr $term)
+         (or (== (car-atom $term) CPU) (contains-cpu-list? (cdr-atom $term)))
+         false)))
+
 (= (disable-inversion-proof-id? $prf)
    (or (= $prf (mined_implication $_ $_)) (= $prf (no_inverse $_))))
 
@@ -218,20 +228,20 @@
             (($a (seq2expr (inline-premises $kb $premises)))
               ($b (seq2expr $conclusions))
               ($nb (skolemize $prf $a $b))
-              ($na (skolemize $prf $b $a)))
+              ($na (skolemize $prf $b $a))
+              ($skip-inverse (or (disable-inversion-proof-id? $prf) (contains-cpu? $a))))
             (superpose ((implication $kb $prf $a $nb $tv)
                         (if (is-var $nb) (empty)
                            (compile-outputs (: (kbctx $kb) ($prf $prfa) $nb $btv)))
                         (if (is-var $a) (empty)
                            (compile-inputs (: (kbctx $kb) $prfa $a $atv)))
-                        (if (not (disable-inversion-proof-id? $prf))
+                        (if (not $skip-inverse)
                            (inverse-implication $kb $prf $na $b $tv)
                            (empty))
-                        (if (or (disable-inversion-proof-id? $prf) (is-var $na))
-                           (empty)
+                        (if (or $skip-inverse (is-var $na)) (empty)
                            (compile-outputs
                               (: ((inverted $prf $pa $pb1) $pb2) $na $natv)))
-                        (if (or (disable-inversion-proof-id? $prf) (is-var $b)) (empty)
+                        (if (or $skip-inverse (is-var $b)) (empty)
                            (compile-inputs (: $pb2 $b $btv2))))))
          (superpose ((() |- ((: ($kb MAIN Nil) $prf $Type $tv)))
                      (compile-outputs (: ($kb MAIN Nil) $prf $Type $tv)))))))

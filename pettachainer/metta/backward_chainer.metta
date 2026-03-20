@@ -1,5 +1,7 @@
 (= (goal-term-by-id $gid) (match &goal_by_id ($gid $goal) $goal))
 
+(= (next-agid) (next-search-id bwd_agid))
+
 (= (goal-expanded? $gid)
    (not (== (collapse (once (match &goal_expanded ($gid true) true))) ())))
 
@@ -148,12 +150,188 @@
    (is-member $fun
       (() FoldAllTVRuntimeFormula DistAverageFormula Map2DistRuntimeFormula)))
 
+(= (aggregate-runtime-goal? $goal)
+   (case $goal (
+        (((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $_fun) $_goalres)
+              ($_kbid $_ctx $_vars)
+              $_prf
+              $_tv)
+           true)
+        (((CPU DistAverageFormula ($_kb $_pattern) $_goalres) ($_kbid $_ctx $_vars)
+              $_prf
+              $_tv)
+           true)
+        ($other false))))
+
+(=
+   (aggregate-goal-child-goal
+      ((CPU FoldAllTVRuntimeFormula ($kb $pattern $_init $_fun) $_goalres)
+         ($_kbid $_ctx $_vars)
+         $_prf
+         $_tv))
+   (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
+      (let $qpattern (runtime-query-pattern $pattern)
+         ($qpattern ($rkbid $rctx $rvars) $child-prf $child-tv))))
+(=
+   (aggregate-goal-child-goal
+      ((CPU DistAverageFormula ($kb $pattern) $_goalres) ($_kbid $_ctx $_vars)
+         $_prf
+         $_tv))
+   (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
+      (let $qpattern (runtime-query-pattern $pattern)
+         ($qpattern ($rkbid $rctx $rvars) $child-prf $child-tv))))
+
+(=
+   (aggregate-goal-init-acc
+      ((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $init $_fun) $_goalres)
+         ($_kbid $_ctx $_vars)
+         $_prf
+         $_tv))
+   $init)
+(=
+   (aggregate-goal-init-acc
+      ((CPU DistAverageFormula ($_kb $_pattern) $_goalres) ($_kbid $_ctx $_vars)
+         $_prf
+         $_tv))
+   (SumCount (PointMass 0.0) 0))
+
+(=
+   (aggregate-goal-step-acc
+      ((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $fun) $_goalres)
+         ($_kbid $_ctx $_vars)
+         $_prf
+         $_tv)
+      $acc
+      $child-tv)
+   (reduce (reduce ($fun $acc $child-tv))))
+(=
+   (aggregate-goal-step-acc
+      ((CPU DistAverageFormula ($_kb $_pattern) $_goalres) ($_kbid $_ctx $_vars)
+         $_prf
+         $_tv)
+      $acc
+      $child-tv)
+   (reduce (reduce (DistSumCountAcc $acc $child-tv))))
+
+(=
+   (aggregate-goal-result
+      ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $_goalres)
+         ($kbid $ctx $vars)
+         $prf
+         $_tv)
+      $acc)
+   ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $acc) ($kbid $ctx $vars)
+      $prf
+      $acc))
+(=
+   (aggregate-goal-result
+      ((CPU DistAverageFormula ($kb $pattern) $_goalres) ($kbid $ctx $vars) $prf $_tv)
+      $acc)
+   (let $out (reduce (reduce (DistAverageFromSumCount $acc)))
+      ((CPU DistAverageFormula ($kb $pattern) $out) ($kbid $ctx $vars) $prf $out)))
+
+(= (aggregate-state-by-id $agid)
+   (match &aggregate_state ($agid $gid $child-gid $goal $acc $ev)
+      (aggregate-state $gid $child-gid $goal $acc $ev)))
+
+(= (set-aggregate-state $agid $gid $child-gid $goal $acc $ev)
+   (progn
+      (collapse
+         (match &aggregate_state
+            ($agid $old-gid $old-child-gid $old-goal $old-acc $old-ev)
+            (remove-atom &aggregate_state
+               ($agid $old-gid $old-child-gid $old-goal $old-acc $old-ev))))
+      (add-atom &aggregate_state ($agid $gid $child-gid $goal $acc $ev))))
+
+(= (aggregate-seen-proof? $agid $pid)
+   (not (== (collapse (once (match &aggregate_seen ($agid $pid) true))) ())))
+
+(= (aggregate-finalized? $agid)
+   (not (== (collapse (once (match &aggregate_finalized ($agid true) true))) ())))
+
+(= (advance-aggregate-heap $agenda $agid $pid)
+   (if (aggregate-seen-proof? $agid $pid) $agenda
+      (let*
+         (((aggregate-state $gid $child-gid $goal $acc $ev)
+              (aggregate-state-by-id $agid))
+           (($_pscore $pev) (proof-stats-by-id $pid))
+           ($nacc (aggregate-goal-step-acc $goal $acc (proof-tv-by-id $pid)))
+           ($nev (list_to_set (list-append $ev $pev)))
+           ($_1 (set-aggregate-state $agid $gid $child-gid $goal $nacc $nev))
+           ($_2 (add-atom &aggregate_seen ($agid $pid))))
+         $agenda)))
+
+(= (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid)
+   (fold-flat (|-> ($acc $pid) (advance-aggregate-heap $acc $agid $pid))
+      $agenda
+      (collapse (match &goal_proof ($child-gid $pid) $pid))))
+
+(= (spawn-aggregate-goal-heap $agenda $score $gid $goal)
+   (let*
+      (($child-goal (aggregate-goal-child-goal $goal))
+        ($child-gid (ensure-goal $child-goal))
+        ($agid (next-agid))
+        ($stored-goal (copy_term $goal))
+        ($_1
+           (set-aggregate-state $agid
+              $gid
+              $child-gid
+              $stored-goal
+              (aggregate-goal-init-acc $goal)
+              ()))
+        ($_2 (add-atom &aggregate_waiter ($child-gid $agid)))
+        ($agenda1 (attach-existing-aggregate-proofs-heap $agenda $agid $child-gid))
+        ($nagenda (schedule-goal-heap $agenda1 $score $child-gid)))
+      $nagenda))
+
+(= (finalize-aggregate-heap $agenda $agid)
+   (if (aggregate-finalized? $agid) $agenda
+      (let*
+         (((aggregate-state $gid $child-gid $goal $acc $ev)
+              (aggregate-state-by-id $agid))
+           ($dep-agids
+              (collapse
+                 (match &aggregate_state
+                    ($dep-agid $child-gid $_dep-child $_dep-goal $_dep-acc $_dep-ev)
+                    $dep-agid)))
+           ($agenda1 (fold-flat finalize-aggregate-heap $agenda $dep-agids))
+           ($_1 (add-atom &aggregate_finalized ($agid true)))
+           ($result (aggregate-goal-result $goal $acc)))
+         (commit-proof-candidate-heap $agenda1
+            $gid
+            (classify-goal-proof-candidate $gid $ev (term-confidence $result))
+            (proof-atom-candidate $result $ev)))))
+
+(= (finalize-all-aggregates-heap $agenda)
+   (fold-flat finalize-aggregate-heap
+      $agenda
+      (collapse
+         (match &aggregate_state ($agid $_gid $_child-gid $_goal $_acc $_ev)
+            $agid))))
+
 (= (runtime-kctx $kb)
    (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil)) ($kb MAIN Nil)))
 
+(= (runtime-query-pattern $pattern) (map-nested2 toQuery $pattern))
+
+(= (runtime-match-pattern $qpattern)
+   (if (contains-hash? $qpattern) (map-nested unwrap $qpattern) $qpattern))
+
 (= (runtime-direct-match-results $steps $kb $type)
    (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
-      (direct-goal-results $steps ($type ($rkbid $rctx $rvars) $prf $tv))))
+      (let $qtype (runtime-query-pattern $type)
+         (direct-goal-results $steps ($qtype ($rkbid $rctx $rvars) $prf $tv)))))
+
+(= (direct-goal-query-term $goal)
+   (if (= $goal ($type ($kbid $_ctx $_vars) $prf $tv))
+      (let $qtype
+         (if (and (is-expr $type) (contains-hash? $type)) (map-nested unwrap $type)
+            $type)
+         ($qtype ($kbid $_ctx $_vars) $prf $tv))
+      $goal))
+
+(= (direct-goal-fact-match $goal $candidate)
+   (let $goal-copy (copy_term $goal) (if (= $goal-copy $candidate) $candidate (empty))))
 
 (=
    (direct-goal-results $steps
@@ -162,7 +340,8 @@
          $prf
          $_tv))
    (let*
-      (($out (reduce (reduce (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)))))
+      (($qpattern (runtime-query-pattern $pattern))
+        ($out (reduce (reduce (FoldAllTVRuntimeNoStepsQuery $kb $qpattern $init $fun)))))
       (superpose (
            ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out)
               ($kbid $ctx $vars)
@@ -172,9 +351,10 @@
    (direct-goal-results $steps
       ((CPU DistAverageFormula ($kb $pattern) $_goalres) ($kbid $ctx $vars) $prf $_tv))
    (let*
-      (($sumcount
-           (FoldAllTVRuntimeNoSteps $kb
-              $pattern
+      (($qpattern (runtime-query-pattern $pattern))
+        ($sumcount
+           (FoldAllTVRuntimeNoStepsQuery $kb
+              $qpattern
               (SumCount (PointMass 0.0) 0)
               DistSumCountAcc))
         ($out (reduce (reduce (DistAverageFromSumCount $sumcount)))))
@@ -200,17 +380,12 @@
    (if (specialized-runtime-cpu-fun? $fun) (empty)
       (let $res (cpu-call $steps $fun $args)
          (superpose (((CPU $fun $args $res) ($kbid $ctx $vars) $prf $res)))))))
+(= (direct-goal-results $steps (CPU $fun $args $_res))
+   (superpose ((CPU $fun $args (cpu-call $steps $fun $args))))))
 (= (direct-goal-results $steps $goal)
-   (if (= $goal (CPU $fun $args $_res))
-      (superpose ((CPU $fun $args (cpu-call $steps $fun $args)))))
-      (let ($type ($kbid $_ctx $_vars) $prf $tv) $goal
-         (let $kb ($kbid $_ctx $_vars)
-            (let $utype
-               (if (and (is-expr $type) (contains-hash? $type))
-                  (map-nested unwrap $type)
-                  $type)
-               (match &kb ($utype $kb $prf $tv)
-                  ($type $kb $prf $tv)))))))
+   (let $query-goal (direct-goal-query-term $goal)
+      (match &kb $candidate
+         (direct-goal-fact-match $query-goal $candidate))))
 
 (= (leaf-evidence-for-result $result)
    (if (= $result ($type ($kbid $_ctx $_vars) $prf $_tv))
@@ -309,9 +484,18 @@
             (progn
                (add-atom &goal_proof ($gid $pid))
                ($_summary-pid (refresh-goal-summary-proof $gid))
-               (fold-flat (|-> ($acc $fid) (advance-frontier-heap $acc $fid $pid))
-                  $agenda
-                  (collapse (match &goal_waiter ($gid $fid) $fid))))))))
+               (let*
+                  (($agenda1
+                       (fold-flat
+                          (|-> ($acc $fid) (advance-frontier-heap $acc $fid $pid))
+                          $agenda
+                          (collapse (match &goal_waiter ($gid $fid) $fid))))
+                    ($agenda2
+                       (fold-flat
+                          (|-> ($acc $agid) (advance-aggregate-heap $acc $agid $pid))
+                          $agenda1
+                          (collapse (match &aggregate_waiter ($gid $agid) $agid)))))
+                  $agenda2))))))
 
 (=
    (commit-proof-candidate $gid
@@ -341,10 +525,13 @@
          (classify-goal-proof-candidate $gid $ev $score)
          (proof-candidate (leaf $result) $tv-state $score $ev ()))))
 
-(= (expand-direct-goal-heap $agenda $steps $gid $goal)
-   (fold-flat (|-> ($acc $result) (expand-direct-goal-result-heap $acc $gid $result))
-      $agenda
-      (collapse (direct-goal-results $steps $goal))))
+(= (expand-direct-goal-heap $agenda $steps $score $gid $goal)
+   (if (aggregate-runtime-goal? $goal)
+      (spawn-aggregate-goal-heap $agenda $score $gid $goal)
+      (fold-flat
+         (|-> ($acc $result) (expand-direct-goal-result-heap $acc $gid $result))
+         $agenda
+         (collapse (direct-goal-results $steps $goal)))))
 
 (= (instantiated-bundle-goal $aid $pid-list)
    (case
@@ -441,23 +628,23 @@
         ($_1 (add-atom &and_node ($aid $parent-gid $rule-id $bound $bundle))))
       (spawn-frontier-heap $agenda $parent-gid $aid $bundle $bound () ())))
 
-(= (expand-goal-heap $agenda $steps $gid)
+(= (expand-goal-heap $agenda $steps $score $gid)
    (let $goal (goal-term-by-id $gid)
       (let*
          (($_expand (add-atom &goal_expanded ($gid true)))
-           ($agenda1 (expand-direct-goal-heap $agenda $steps $gid $goal))
+           ($agenda1 (expand-direct-goal-heap $agenda $steps $score $gid $goal))
            ($nagenda (expand-rule-goal-heap $agenda1 $gid $goal)))
          $nagenda)))
 
 (= (search-goals-heap $steps $agenda)
-   (if (or (<= $steps 0) (== (heap_size $agenda) 0)) $agenda
+   (if (or (<= $steps 0) (== (heap_size $agenda) 0)) (search-state $steps $agenda)
       (let*
          (($rest (get_from_heap $agenda $_priority $item))
            ((qitem $score $gid) $item))
          (if (and (not (goal-expanded? $gid)) (== (goal-pending-score-of $gid) $score))
             (let*
                (($_clear (clear-goal-pending-score $gid))
-                 ($nagenda (expand-goal-heap $rest $steps $gid)))
+                 ($nagenda (expand-goal-heap $rest $steps $score $gid)))
                (search-goals-heap (- $steps 1) $nagenda))
             (search-goals-heap $steps $rest)))))
 
@@ -477,6 +664,10 @@
         ($_gwaitclear (remove-all-atoms &goal_waiter))
         ($_andclear (remove-all-atoms &and_node))
         ($_frontierclear (remove-all-atoms &frontier))
+        ($_aggstateclear (remove-all-atoms &aggregate_state))
+        ($_aggwaitclear (remove-all-atoms &aggregate_waiter))
+        ($_aggseenclear (remove-all-atoms &aggregate_seen))
+        ($_aggfinalclear (remove-all-atoms &aggregate_finalized))
         ($_gproofclear (remove-all-atoms &goal_proof))
         ($_gsummaryclear (remove-all-atoms &goal_summary_proof))
         ($_pgoalclear (remove-all-atoms &proof_goal))
@@ -491,13 +682,19 @@
       (($_clear (clear-backward-state))
         ($_gidreset (change-state! bwd_gid 0))
         ($_aidreset (change-state! bwd_aid 0))
+        ($_agidreset (change-state! bwd_agid 0))
         ($_fidreset (change-state! bwd_fid 0))
         ($_pidreset (change-state! bwd_pid 0))
         ($root-gid (ensure-goal $goal))
-        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid))
-        ($_search
-           (if (<= $steps 0) () (collapse (search-goals-heap (+ $steps 1) $agenda0)))))
-      (goal-results $root-gid)))
+        ($agenda0 (schedule-goal-heap (empty_heap) 1.0 $root-gid)))
+      (let (search-state $search-steps-left $agenda1)
+         (if (<= $steps 0) (search-state 0 $agenda0)
+            (search-goals-heap (+ $steps 1) $agenda0))
+         (let $agenda2 (finalize-all-aggregates-heap $agenda1)
+            (let (search-state $_search-steps-left2 $_agenda3)
+               (if (<= $search-steps-left 0) (search-state $search-steps-left $agenda2)
+                  (search-goals-heap $search-steps-left $agenda2))
+               (goal-results $root-gid))))))
 
 (= (unwrap $x) (if (== $x #) $any $x))
 
@@ -537,14 +734,14 @@
 
 (= (inject-compiled-adds $adds) (if (= $adds ()) $_ (foreach-flat add-to-kb $adds)))
 
-(= (compiled-query-goal (cons (goal $query) $_adds)) $query)
-
-(= (compiled-query-adds (cons (goal $_query) $adds)) $adds)
-
 (= (run-compiled-query $steps $compiled-query)
    (let*
-      (($query (compiled-query-goal $compiled-query))
-        ($adds (compiled-query-adds $compiled-query))
+      (($head (car-atom $compiled-query))
+        ($adds (cdr-atom $compiled-query))
+        ($query
+           (case $head (
+                ((goal $query) $query)
+                ($other (notsupported run-compiled-query $compiled-query $other)))))
         ($_ (inject-compiled-adds $adds)))
       (chainer $steps $query)))
 
@@ -554,8 +751,19 @@
          (pretty (superpose $eres)))))
 
 (= (query $steps $kb $stmt)
-   (run-compiled-query-output $steps
-      (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt)))))
+   (let*
+      (($compiled-query
+           (map-flat internalize-proof-structure (collapse (mm2compileQuery $kb $stmt))))
+        ($head (car-atom $compiled-query))
+        ($adds (cdr-atom $compiled-query))
+        ($_ (inject-compiled-adds $adds))
+        ($goal
+           (case $head (
+                ((goal $query) $query)
+                ($other (notsupported query $steps $kb $stmt $compiled-query $other)))))
+        ($results (chainer $steps $goal))
+        ($eres (map-flat externalize-proof-structure $results)))
+      (pretty (superpose $eres))))
 
 (= (FoldAllFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
    (foldall-eval $fun
@@ -570,13 +778,17 @@
       $init
       (extract-proof-tvs (run-compiled-query $steps $compiled-query))))
 
-(= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
+(= (FoldAllTVRuntimeNoStepsQuery $kb $qpattern $init $fun)
    (let*
       (($kctx
            (if (is-expr $kb) (let ($kbid $_ctx $_vars) $kb ($kbid MAIN Nil))
               ($kb MAIN Nil)))
-        ($matches (collapse (match &kb ($pattern $kctx $prf $ptv) $ptv))))
+        ($upattern (runtime-match-pattern $qpattern))
+        ($matches (collapse (match &kb ($upattern $kctx $prf $ptv) $ptv))))
       (foldall-eval $fun $init $matches)))
+
+(= (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun)
+   (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
 
 (= (Map2DistRuntimeFormula $steps $kb $fun $a $b)
    (let ($_a ($akbid $actx $avars) $prfa $tva)
@@ -586,7 +798,7 @@
          (DistMap2Formula $fun $tva $tvb))))
 
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
-   (FoldAllTVRuntimeNoSteps $kb $pattern $init $fun))
+   (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
 
 (= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
    (foldall-eval $fun
