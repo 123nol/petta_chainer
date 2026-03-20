@@ -449,7 +449,7 @@
 (= (BenchBaseFactCount $bench)
    (BenchListCount
       (collapse
-         (match &kb ((BenchFact $bench $_path $_idx) $_kb (bench-base-fact $bench $_path $_idx) $_tv)
+         (match &kb ($_type $_kb (bench-base-fact $bench $_path $_idx) $_tv)
             ok))))
 
 (= (BenchNoiseBackwardRuleCount $bench)

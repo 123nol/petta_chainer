@@ -56,7 +56,10 @@
       ())
    true)
 
-!(test (== (collapse (query 100 kb (: $prf (NoiseDeadEnd benchNoiseMix $idx) $tv))) ())
+!(test
+   (==
+      (BenchListCount (collapse (query 100 kb (: $prf (NoiseDeadEnd benchNoiseMix $idx) $tv))))
+      2)
    true)
 
 !(BenchGenerate benchPaths3

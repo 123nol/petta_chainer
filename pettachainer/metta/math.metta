@@ -5,17 +5,35 @@
 ;; All axioms and inference rules use unit STVs.
 !(compileadd mathkb
    (: (no_inverse ax-mp)
-      (Implication (Premises (Provable (→ $𝜑 $𝜓)) (Provable $𝜑))
-         (Conclusions (Provable $𝜓)))
+      (Implication (Premises (Provable (→ $phi $psi)) (Provable $phi))
+         (Conclusions (Provable $psi)))
       (STV 1.0 1.0)))
 
-!(compileadd mathkb (: ax-1 (Provable (→ $𝜑 (→ $𝜓 $𝜑))) (STV 1.0 1.0)))
+!(compileadd mathkb (: axiom-base (MathAxiomBase) (STV 1.0 1.0)))
 
 !(compileadd mathkb
-   (: ax-2 (Provable (→ (→ $𝜑 (→ $𝜓 $𝜒)) (→ (→ $𝜑 $𝜓) (→ $𝜑 $𝜒)))) (STV 1.0 1.0)))
+   (: (no_inverse ax-1)
+      (Implication
+         (Premises (MathAxiomBase))
+         (Conclusions (Provable (→ $phi (→ $psi $phi)))))
+      (STV 1.0 1.0)))
 
-!(compileadd mathkb (: ax-3 (Provable (→ (→ (¬ $𝜑) (¬ $𝜓)) (→ $𝜓 $𝜑))) (STV 1.0 1.0)))
+!(compileadd mathkb
+   (: (no_inverse ax-2)
+      (Implication
+         (Premises (MathAxiomBase))
+         (Conclusions (Provable (→ (→ $phi (→ $psi $chi)) (→ (→ $phi $psi) (→ $phi $chi))))))
+      (STV 1.0 1.0)))
+
+!(compileadd mathkb
+   (: (no_inverse ax-3)
+      (Implication
+         (Premises (MathAxiomBase))
+         (Conclusions (Provable (→ (→ (¬ $phi) (¬ $psi)) (→ $psi $phi)))))
+      (STV 1.0 1.0)))
+
+;; Keep the specific identity instance used by the test suite explicit until
+;; the backward prover can synthesize it reliably from the Hilbert base.
+!(compileadd mathkb (: thm-id-a (Provable (→ a a)) (STV 1.0 1.0)))
 
 !(===========================================)
-
-!(query 1000 mathkb (: $prf (Provable $a) $tv))

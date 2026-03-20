@@ -22,6 +22,9 @@
       (progn (if (== $key ()) () (add-atom prem_index ($key $prem $id $idx)))
          (+ $idx 1))))
 
+(= (rule-open-ccls-key $ccls)
+   (if (== (extract-vars $ccls) ()) () (map-nested2 toQuery $ccls)))
+
 (= (add-to-kb $expr)
    (if (= $expr (rules ($args |- $ccls)))
       (let*
@@ -29,8 +32,10 @@
            ($id (nextid))
            ($_1 (fold-flat (add-prem $vars $id) 0 $args))
            ($_2 (add-atom ccls_index ($ccls $id)))
-           ($_3 (add-atom rules ($id $ccls $args)))
-           ($_4 (forward-register-added-rule $args $ccls)))
+           ($open-key (rule-open-ccls-key $ccls))
+           ($_3 (if (== $open-key ()) () (add-atom ccls_index ($open-key $id))))
+           ($_4 (add-atom rules ($id $ccls $args)))
+           ($_5 (forward-register-added-rule $args $ccls)))
          ())
       (progn (add-atom &kb $expr) (forward-register-added-expr $expr))))
 

@@ -1,4 +1,3 @@
-!(import! &self petta_chainer)
 !(import! &self math)
 
 !(test
