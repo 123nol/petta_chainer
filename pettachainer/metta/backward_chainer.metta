@@ -74,14 +74,9 @@
    (if (goal-has-type-vars? $gid) (collapse (match &goal_proof ($gid $pid) $pid))
       (let $pid (goal-summary-pid $gid) (if (== $pid ()) () (cons $pid ())))))
 
-(= (goal-open-results-merge $new ()) (cons $new ()))
-(= (goal-open-results-merge $new (cons $old $rest))
-   (if (goal-key-eq? $new $old) (cons (merge-proof-atoms $old $new) $rest)
-      (cons $old (goal-open-results-merge $new $rest))))
-
 (= (goal-open-result-atoms ()) ())
 (= (goal-open-result-atoms (cons $pid $rest))
-   (goal-open-results-merge (proof-output-atom $pid) (goal-open-result-atoms $rest)))
+   (cons (proof-output-atom $pid) (goal-open-result-atoms $rest)))
 
 (= (materialize-proof-atoms ()) ())
 (= (materialize-proof-atoms (cons $atom $rest))
