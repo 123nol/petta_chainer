@@ -1,15 +1,22 @@
 !(import! &self compile)
+!(import! &self ../compile)
 !(import! &self mining)
+!(import! &self ../mining)
 
 !(use-module! heaps)
 
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 
 !(import! &self chainer_utils)
+!(import! &self ../chainer_utils)
 !(import! &self forward_chainer)
+!(import! &self ../forward_chainer)
 !(import! &self dist_formulas)
+!(import! &self ../dist_formulas)
 !(import! &self tv_formulas)
+!(import! &self ../tv_formulas)
 !(import! &self backward_chainer)
+!(import! &self ../backward_chainer)
 
 (= (nextid)
    (let*
@@ -34,12 +41,26 @@
          ())
       (progn (add-atom &kb $expr) (forward-register-added-expr $expr))))
 
+(= (materialize-stmt-lambdas $term)
+   (if (is-var $term) $term
+      (if (is-expr $term)
+         (if (== (car-atom $term) |->)
+            (eval $term)
+            (cons (materialize-stmt-lambdas (car-atom $term))
+               (materialize-stmt-lambdas-list (cdr-atom $term))))
+         $term)))
+
+(= (materialize-stmt-lambdas-list ()) ())
+(= (materialize-stmt-lambdas-list (cons $head $tail))
+   (cons (materialize-stmt-lambdas $head) (materialize-stmt-lambdas-list $tail)))
+
 (= (compileadd $kb $stmt)
    (let*
-      (($atoms (collapse (mm2compile $kb $stmt)))
+      (($stmt1 (materialize-stmt-lambdas $stmt))
+        ($atoms (collapse (mm2compile $kb $stmt1)))
         ($iatoms (map-flat internalize-proof-structure $atoms))
         ($eatoms (map-flat externalize-proof-structure $iatoms))
         ($_ (foreach-flat add-to-kb $iatoms))
-        ($_ (process-on-add $kb $stmt)))
+        ($_ (process-on-add $kb $stmt1)))
       (superpose
          $eatoms)))

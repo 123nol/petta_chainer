@@ -41,12 +41,8 @@
       (STV 1.0 1.0)))
 
 !(test
-   (not
-      (==
-         (is-member (: (foldRule cpu) (ScoreTotal 6) (STV 1.0 1.0))
-            (collapse (query 10 kb (: $prf (ScoreTotal $x) $tv))))
-         ()))
-   true)
+   (query 30 kb (: $prf (ScoreTotal $x) $tv))
+   (: (rule-proof foldRule cpu) (ScoreTotal 6) (STV 1.0 0.9)))
 
 !(compileadd kb
    (: foldZeroRule
@@ -55,12 +51,8 @@
       (STV 1.0 1.0)))
 
 !(test
-   (not
-      (==
-         (is-member (: (foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 1.0))
-            (collapse (query 10 kb (: $prf (Count MissingTotal $x) $tv))))
-         ()))
-   true)
+   (collapse (query 10 kb (: $prf (Count MissingTotal $x) $tv)))
+   ((: (rule-proof foldZeroRule cpu) (Count MissingTotal 42) (STV 1.0 0.9))))
 
 !(compileadd kb
    (: numFromCount
@@ -75,12 +67,8 @@
       (STV 1.0 1.0)))
 
 !(test
-   (not
-      (==
-         (is-member (: (foldDerivedRule cpu) (DerivedTotal 6) (STV 1.0 1.0))
-            (collapse (query 10 kb (: $prf (DerivedTotal $x) $tv))))
-         ()))
-   true)
+   (collapse (query 30 kb (: $prf (DerivedTotal $x) $tv)))
+   ((: (rule-proof foldDerivedRule cpu) (DerivedTotal 6) (STV 1.0 0.9))))
 
 !(compileadd kb
    (: dogsInHouseRule
@@ -96,19 +84,14 @@
       (STV 1.0 1.0)))
 
 !(test
-   (not
-      (==
-         (is-member
-            (: (dogsInHouseRule (conjunction prf1 cpu)) (Cardinality (DogsIn house1) 5) (STV 1.0 1.0))
-            (collapse (query 20 kb (: $prf (Cardinality (DogsIn house1) 5) $tv))))
-         ()))
-   true)
+   (collapse (query 30 kb (: $prf (Cardinality (DogsIn house1) $x) $tv)))
+   ((: (rule-proof dogsInHouseRule (rule-proof conjunction prf1 cpu))
+       (Cardinality (DogsIn house1) 5)
+       (STV 1.0 0.9))))
 
 !(compileadd kb
    (: apbisc (Implication (Premises (Count A $a) (Count B $b) (Compute + ($a $b) -> $c)) (Conclusions (Count C $c))) (STV 1.0 1.0)))
 
 !(test
-   (not
-      (== (is-member (: prf (Count C 3) (STV 1.0 1.0)) (collapse (query 10 kb (: prf (Count C $x) $tv))))
-         ()))
-   true)
+   (collapse (query 10 kb (: prf (Count C $x) $tv)))
+   ((: prf (Count C 3) (STV 1.0 1.0))))

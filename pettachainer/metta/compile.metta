@@ -55,7 +55,7 @@
            (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out))
         ((FoldAll $pattern $value $init $fun -> $out)
            (CPU FoldAllFormulaCompiled
-              ((map-flat internalize-proof-structure
+              ((internalize-proof-structure-list
                   (collapse (mm2compileQuery $kb (: $prf $pattern $tvin))))
                  $pattern
                  $value
