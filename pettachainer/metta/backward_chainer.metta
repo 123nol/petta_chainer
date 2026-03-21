@@ -75,6 +75,17 @@
 
 (= (goal-has-type-vars? $gid) (goal-term-has-type-vars? (goal-term-by-id $gid)))
 
+(= (rule-expansion-has-id? () $_rule-id) false)
+(= (rule-expansion-has-id? (cons ($_args $_goal $_parent-gid $item-rule-id) $rest) $rule-id)
+   (or (== $item-rule-id $rule-id) (rule-expansion-has-id? $rest $rule-id)))
+
+(= (rule-expansion-add-unique $acc ($args $goal $parent-gid $rule-id))
+   (if (rule-expansion-has-id? $acc $rule-id) $acc
+      (cons ($args $goal $parent-gid $rule-id) $acc)))
+
+(= (rule-expansion-list-unique $lst)
+   (fold-flat rule-expansion-add-unique () $lst))
+
 (= (goal-result-pids $gid)
    (if (goal-has-type-vars? $gid) (collapse (match &goal_proof ($gid $pid) $pid))
       (let $pid (goal-summary-pid $gid) (if (== $pid ()) () (cons $pid ())))))
@@ -148,7 +159,12 @@
 
 (= (specialized-runtime-cpu-fun? $fun)
    (is-member $fun
-      (() FoldAllTVRuntimeFormula DistAverageFormula Map2DistRuntimeFormula)))
+      (()
+         FoldAllFormulaCompiled
+         FoldAllTVFormulaCompiled
+         FoldAllTVRuntimeFormula
+         DistAverageFormula
+         Map2DistRuntimeFormula)))
 
 (= (compiled-query-goal-head $compiled-query)
    (case (car-atom $compiled-query) (
@@ -159,10 +175,28 @@
 
 (= (aggregate-runtime-goal? $goal)
    (case $goal (
+        ((CPU FoldAllFormulaCompiled ($_compiled-query $_pattern $_value $_init $_fun) $_goalres)
+           true)
+        (((CPU FoldAllFormulaCompiled ($_compiled-query $_pattern $_value $_init $_fun) $_goalres)
+              ($_kbid $_ctx $_vars)
+              $_prf
+              $_tv)
+           true)
+        ((CPU FoldAllTVFormulaCompiled ($_compiled-query $_init $_fun) $_goalres)
+           true)
+        (((CPU FoldAllTVFormulaCompiled ($_compiled-query $_init $_fun) $_goalres)
+              ($_kbid $_ctx $_vars)
+              $_prf
+              $_tv)
+           true)
+        ((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $_fun) $_goalres)
+           true)
         (((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $_fun) $_goalres)
               ($_kbid $_ctx $_vars)
               $_prf
               $_tv)
+           true)
+        ((CPU DistAverageFormula ($_kb $_pattern) $_goalres)
            true)
         (((CPU DistAverageFormula ($_kb $_pattern) $_goalres) ($_kbid $_ctx $_vars)
               $_prf
@@ -170,15 +204,16 @@
            true)
         ($other false))))
 
-(=
+(= 
    (aggregate-goal-child-goal
       (CPU FoldAllFormulaCompiled ($compiled-query $_pattern $_value $_init $_fun) $_goalres))
    (let*
       (($adds (compiled-query-adds $compiled-query))
-        ($_ (inject-compiled-adds $adds)))
-      (compiled-query-goal-head $compiled-query)))
+        ($_ (inject-compiled-adds $adds))
+        ($child-goal (compiled-query-goal-head $compiled-query)))
+      $child-goal))
 
-(=
+(= 
    (aggregate-goal-child-goal
       ((CPU FoldAllFormulaCompiled ($compiled-query $_pattern $_value $_init $_fun) $_goalres)
          ($_kbid $_ctx $_vars)
@@ -186,18 +221,20 @@
          $_tv))
    (let*
       (($adds (compiled-query-adds $compiled-query))
-        ($_ (inject-compiled-adds $adds)))
-      (compiled-query-goal-head $compiled-query)))
+        ($_ (inject-compiled-adds $adds))
+        ($child-goal (compiled-query-goal-head $compiled-query)))
+      $child-goal))
 
-(=
+(= 
    (aggregate-goal-child-goal
       (CPU FoldAllTVFormulaCompiled ($compiled-query $_init $_fun) $_goalres))
    (let*
       (($adds (compiled-query-adds $compiled-query))
-        ($_ (inject-compiled-adds $adds)))
-      (compiled-query-goal-head $compiled-query)))
+        ($_ (inject-compiled-adds $adds))
+        ($child-goal (compiled-query-goal-head $compiled-query)))
+      $child-goal))
 
-(=
+(= 
    (aggregate-goal-child-goal
       ((CPU FoldAllTVFormulaCompiled ($compiled-query $_init $_fun) $_goalres)
          ($_kbid $_ctx $_vars)
@@ -205,8 +242,23 @@
          $_tv))
    (let*
       (($adds (compiled-query-adds $compiled-query))
-        ($_ (inject-compiled-adds $adds)))
-      (compiled-query-goal-head $compiled-query)))
+        ($_ (inject-compiled-adds $adds))
+        ($child-goal (compiled-query-goal-head $compiled-query)))
+      $child-goal))
+
+(=
+   (aggregate-goal-child-goal
+      (CPU FoldAllTVRuntimeFormula ($kb $pattern $_init $_fun) $_goalres))
+   (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
+      (let $qpattern (runtime-query-pattern $pattern)
+         ($qpattern ($rkbid $rctx $rvars) $child-prf $child-tv))))
+
+(=
+   (aggregate-goal-child-goal
+      (CPU DistAverageFormula ($kb $pattern) $_goalres))
+   (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
+      (let $qpattern (runtime-query-pattern $pattern)
+         ($qpattern ($rkbid $rctx $rvars) $child-prf $child-tv))))
 
 (=
    (aggregate-goal-child-goal
@@ -225,6 +277,16 @@
    (let ($rkbid $rctx $rvars) (runtime-kctx $kb)
       (let $qpattern (runtime-query-pattern $pattern)
          ($qpattern ($rkbid $rctx $rvars) $child-prf $child-tv))))
+
+(=
+   (aggregate-goal-init-acc
+      (CPU FoldAllTVRuntimeFormula ($_kb $_pattern $init $_fun) $_goalres))
+   $init)
+
+(=
+   (aggregate-goal-init-acc
+      (CPU DistAverageFormula ($_kb $_pattern) $_goalres))
+   (SumCount (PointMass 0.0) 0))
 
 (=
    (aggregate-goal-init-acc
@@ -334,6 +396,22 @@
    (reduce (reduce ($fun $acc $child-tv))))
 (=
    (aggregate-goal-step-acc
+      (CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $fun) $_goalres)
+      $acc
+      $_child-atom
+      $child-tv)
+   (reduce (reduce ($fun $acc $child-tv))))
+
+(=
+   (aggregate-goal-step-acc
+      (CPU DistAverageFormula ($_kb $_pattern) $_goalres)
+      $acc
+      $_child-atom
+      $child-tv)
+   (reduce (reduce (DistSumCountAcc $acc $child-tv))))
+
+(=
+   (aggregate-goal-step-acc
       ((CPU FoldAllTVRuntimeFormula ($_kb $_pattern $_init $fun) $_goalres)
          ($_kbid $_ctx $_vars)
          $_prf
@@ -358,7 +436,7 @@
       $acc)
    (CPU FoldAllFormulaCompiled ($compiled-query $pattern $value $init $fun) $acc))
 
-(=
+(= 
    (aggregate-goal-result
       ((CPU FoldAllFormulaCompiled ($compiled-query $pattern $value $init $fun) $_goalres)
          ($kbid $ctx $vars)
@@ -367,7 +445,7 @@
       $acc)
    ((CPU FoldAllFormulaCompiled ($compiled-query $pattern $value $init $fun) $acc)
       ($kbid $ctx $vars)
-      $prf
+      cpu
       (cpu-premise-tv FoldAllFormulaCompiled ($compiled-query $pattern $value $init $fun) $acc)))
 
 (=
@@ -376,7 +454,7 @@
       $acc)
    (CPU FoldAllTVFormulaCompiled ($compiled-query $init $fun) $acc))
 
-(=
+(= 
    (aggregate-goal-result
       ((CPU FoldAllTVFormulaCompiled ($compiled-query $init $fun) $_goalres)
          ($kbid $ctx $vars)
@@ -385,10 +463,23 @@
       $acc)
    ((CPU FoldAllTVFormulaCompiled ($compiled-query $init $fun) $acc)
       ($kbid $ctx $vars)
-      $prf
+      cpu
       (cpu-premise-tv FoldAllTVFormulaCompiled ($compiled-query $init $fun) $acc)))
 
 (=
+   (aggregate-goal-result
+      (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $_goalres)
+      $acc)
+   (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $acc))
+
+(=
+   (aggregate-goal-result
+      (CPU DistAverageFormula ($kb $pattern) $_goalres)
+      $acc)
+   (let $out (reduce (reduce (DistAverageFromSumCount $acc)))
+      (CPU DistAverageFormula ($kb $pattern) $out)))
+
+(= 
    (aggregate-goal-result
       ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $_goalres)
          ($kbid $ctx $vars)
@@ -396,14 +487,14 @@
          $_tv)
       $acc)
    ((CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $acc) ($kbid $ctx $vars)
-      $prf
+      cpu
       $acc))
-(=
+(= 
    (aggregate-goal-result
       ((CPU DistAverageFormula ($kb $pattern) $_goalres) ($kbid $ctx $vars) $prf $_tv)
       $acc)
    (let $out (reduce (reduce (DistAverageFromSumCount $acc)))
-      ((CPU DistAverageFormula ($kb $pattern) $out) ($kbid $ctx $vars) $prf $out)))
+      ((CPU DistAverageFormula ($kb $pattern) $out) ($kbid $ctx $vars) cpu $out)))
 
 (= (aggregate-state-by-id $agid)
    (match &aggregate_state ($agid $gid $child-gid $goal $acc $ev)
@@ -803,7 +894,7 @@
                  (match ccls_index ($index-goal $rule-id)
                     (match rules ($rule-id $goal $args)
                        ($args $goal $parent-gid $rule-id))))))
-        ($lst (list_to_set (list-append $exact $open))))
+        ($lst (rule-expansion-list-unique (list-append $exact $open))))
       (fold-flat expand-rule-goal-fold $agenda $lst)))
 
 (= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
@@ -906,12 +997,10 @@
    (reduce
       (reduce
          (if
-            (is-member $fun
+           (is-member $fun
                (() FoldAllFormulaCompiled
                   FoldAllTVFormulaCompiled
-                  FoldAllTVPatternFormula
                   FoldAllTVRuntimeFormula
-                  FoldAllValueFormulaCompiled
                   DistAverageFormula
                   Map2DistRuntimeFormula))
             (cons $fun (cons $steps $args))
@@ -1068,12 +1157,3 @@
 
 (= (FoldAllTVRuntimeFormula $steps $kb $pattern $init $fun)
    (FoldAllTVRuntimeNoStepsQuery $kb (runtime-query-pattern $pattern) $init $fun))
-
-(= (FoldAllTVPatternFormula $steps $kb $pattern $init $fun)
-   (foldall-eval $fun
-      $init
-      (collapse
-         (let (: $prf $pattern $ptv) (query $steps $kb (: $prf $pattern $ptv)) $ptv))))
-
-(= (FoldAllValueFormulaCompiled $steps $compiled-query $pattern $value $init $fun)
-   (FoldAllTVFormulaCompiled $steps $compiled-query $init $fun))

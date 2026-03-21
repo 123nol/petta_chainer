@@ -55,7 +55,9 @@
            (CPU FoldAllTVRuntimeFormula ($kb $pattern $init $fun) $out))
         ((FoldAll $pattern $value $init $fun -> $out)
            (CPU FoldAllFormulaCompiled
-              ((collapse (mm2compileQuery $kb (: $prf $pattern $tvin))) $pattern
+              ((map-flat internalize-proof-structure
+                  (collapse (mm2compileQuery $kb (: $prf $pattern $tvin))))
+                 $pattern
                  $value
                  $init
                  $fun)
@@ -74,9 +76,7 @@
          DistAverageFormula
          Map2DistRuntimeFormula
          FoldAllTVFormulaCompiled
-         FoldAllTVPatternFormula
-         FoldAllTVRuntimeFormula
-         FoldAllValueFormulaCompiled)))
+         FoldAllTVRuntimeFormula)))
 
 (= (cpu-premise-tv $f $args $res) (if (cpu-premise-tv-formula $f) $res (STV 1.0 1.0)))
 
