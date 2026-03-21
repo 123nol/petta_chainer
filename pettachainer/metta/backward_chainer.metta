@@ -70,17 +70,6 @@
 
 (= (goal-has-type-vars? $gid) (goal-term-has-type-vars? (goal-term-by-id $gid)))
 
-(= (rule-expansion-has-id? () $_rule-id) false)
-(= (rule-expansion-has-id? (cons ($_args $_goal $_parent-gid $item-rule-id) $rest) $rule-id)
-   (or (== $item-rule-id $rule-id) (rule-expansion-has-id? $rest $rule-id)))
-
-(= (rule-expansion-add-unique $acc ($args $goal $parent-gid $rule-id))
-   (if (rule-expansion-has-id? $acc $rule-id) $acc
-      (cons ($args $goal $parent-gid $rule-id) $acc)))
-
-(= (rule-expansion-list-unique $lst)
-   (fold-flat rule-expansion-add-unique () $lst))
-
 (= (goal-result-pids $gid)
    (if (goal-has-type-vars? $gid) (collapse (match &goal_proof ($gid $pid) $pid))
       (let $pid (goal-summary-pid $gid) (if (== $pid ()) () (cons $pid ())))))
@@ -883,7 +872,7 @@
               (match ccls_index ($goal $rule-id)
                  (match rules ($rule-id $goal $args)
                     ($args $goal $parent-gid $rule-id)))))
-        ($lst (rule-expansion-list-unique $exact)))
+        ($lst $exact))
       (fold-flat expand-rule-goal-fold $agenda $lst)))
 
 (= (expand-rule-goal-fold $agenda ($args $goal $parent-gid $rule-id))
