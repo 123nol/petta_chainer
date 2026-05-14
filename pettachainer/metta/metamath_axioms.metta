@@ -4,11 +4,11 @@
    (: (no_inverse rule-abduction) 
       (Implication 
          (Premises 
-            (Provable (→ $A $X)) 
-            (Provable (→ $B $X))
+            (Provable (→ $phi $chi)) 
+            (Provable (→ $psi $chi))
          ) 
          (Conclusions 
-            (Provable (→ $A $B))
+            (Provable (→ $phi $psi))
          )
       ) 
       (STV 0.5 0.4) ; Heuristic penalty applied
@@ -18,11 +18,11 @@
    (: (no_inverse rule-induction) 
       (Implication 
          (Premises 
-            (Provable (→ $X $A)) 
-            (Provable (→ $X $B))
+            (Provable (→ $chi $phi)) 
+            (Provable (→ $chi $psi))
          ) 
          (Conclusions 
-            (Provable (→ $A $B))
+            (Provable (→ $phi $psi))
          )
       ) 
       (STV 0.5 0.4) ; Heuristic penalty applied
