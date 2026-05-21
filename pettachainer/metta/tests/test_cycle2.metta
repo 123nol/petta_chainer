@@ -257,6 +257,8 @@
       (STV 1.0 1.0)
    )
 )
+!(compileadd kb (: fact-P (Provable (PropP)) (STV 1.0 1.0)))
+!(compileadd kb (: fact-P-impl-Q (Provable (→ (PropP) (PropQ))) (STV 1.0 1.0)))
 ;; Setup premises for modes ponens
 !(compileadd kb (: fact-P (Provable (PropQ)) (STV 1.0 1.0)))
 ; !(compileadd kb (: fact-P-impl-Q (Provable (→ (PropP) (PropQ))) (STV 1.0 1.0)))
