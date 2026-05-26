@@ -8,5 +8,5 @@
 
 ;; Query if chainer derives R through a two-step implication chain.
 !(test
-   (collapse (query 100 kb (: $prf (PropR) $tv)))
+   (collapse (query 10 kb (: $prf (PropR) $tv)))
    ((: (rule-proof fact-Q-impl-R (rule-proof fact-P-impl-Q fact-P)) (PropR) (STV 1.0 0.81))))
