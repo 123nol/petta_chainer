@@ -2,6 +2,7 @@ import subprocess
 import glob
 import os
 import sys
+import time
 
 def run_metta_tests():
     # 1. Dynamically find the paths
@@ -15,6 +16,7 @@ def run_metta_tests():
     if not test_files:
         print(f"[INFO] No test files matching 'test*.metta' found in: {tests_dir}")
         sys.exit(1)
+        
     passed_tests = len(test_files)
     failed_tests = 0
 
@@ -23,9 +25,15 @@ def run_metta_tests():
     print("[INFO] Starting test run...\n")
     print("-" * 40)
 
+    # Start the master timer for the entire suite
+    suite_start_time = time.time()
+
     for file in test_files:
         filename = os.path.basename(file)
         print(f"Executing: {filename}...")
+        
+        # Start the timer for this specific file
+        file_start_time = time.time()
         
         # 3. Execute the MeTTa file
         try:
@@ -35,6 +43,10 @@ def run_metta_tests():
                 text=True,
                 encoding='utf-8' # Ensures Python correctly reads the emoji characters
             )
+            
+            # Stop the individual timer and calculate duration
+            file_end_time = time.time()
+            file_duration = file_end_time - file_start_time
             
             # 4. Check for the specific '❌' fail marker in the output
             # We also keep the return code check in case the script crashes completely
@@ -50,20 +62,27 @@ def run_metta_tests():
             if failed or not passed:
                 failed_tests += 1
                 passed_tests -= 1
-                print(f"❌ FAIL {filename}\n")
+                # Added time to the fail message
+                print(f"❌ FAIL {filename} ({file_duration:.2f}s)\n")
                 all_tests_passed = False
             else:
-                print(f"✅ PASS {filename}\n")
+                # Added time to the pass message
+                print(f"✅ PASS {filename} ({file_duration:.2f}s)\n")
                 
         except FileNotFoundError:
-            print("[ERROR] The 'metta' command was not found.")
-            print("[INFO] Make sure the MeTTa interpreter is installed and added to your system's PATH.")
+            print("[ERROR] The 'petta' command was not found.")
+            print("[INFO] Make sure the Petta/MeTTa interpreter is installed and added to your system's PATH.")
             sys.exit(1)
+
+    # Stop the master timer
+    suite_end_time = time.time()
+    total_duration = suite_end_time - suite_start_time
 
     # 5. Final summary
     print("-" * 40)
+    print(f"Total Time: {total_duration:.2f} seconds")
     if all_tests_passed:
-        print("[SUCCESS] All logical proofs passed.")
+        print(f"[SUCCESS] All logical proofs passed.")
         sys.exit(0)
     else:
         print(f"[FAILURE] {failed_tests} proofs failed out of {len(test_files)}.")
