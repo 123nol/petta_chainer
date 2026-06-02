@@ -1,6 +1,6 @@
 !(import! &self (library lib_import))
 
-!(use-module! assoc)
+;!(use-module! assoc)
 
 !(import_prolog_function (superpose (empty_assoc put_assoc get_assoc)))
 
