@@ -1,7 +1,7 @@
 !(import! &self compile)
 !(import! &self mining)
 
-!(use-module! heaps)
+; !(use-module! heaps)
 
 !(import_prolog_function (superpose (empty_heap add_to_heap get_from_heap heap_size)))
 !(assertzPredicate (Predicate (arity empty_heap 1)))
