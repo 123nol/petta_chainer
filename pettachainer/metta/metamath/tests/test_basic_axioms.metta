@@ -29,21 +29,44 @@
                         ;(rule-proof (no_inverse pm2.18i) (ctx proof 173)))
                         ;(PropA)
                         ;(STV 1.0 0.9473684210526316))))
+
                         ;; ax-mp test(modus ponens test)
 
                             ;; facts
-                        !(compileadd kb (: fact-X PropX (STV 1.0 1.0)))
-                        !(compileadd kb (: fact-X-impl-Y (Implication (Premises PropX)) (Conclusions PropY)) (STV 1.0 1.0))
+                        ;!(compileadd kb (: fact-X PropX (STV 1.0 1.0)))
+                        ; !(compileadd kb (: fact-X-impl-Y (Implication (Premises PropX)) (Conclusions PropY)) (STV 1.0 1.0))
 
                             ;;if x, x->y then y
-                            !(test
-                            (collapse (query 10 kb (: $prf (PropY) $tv)))
-                                ((:
-                                    (merge/revision
-                                    (rule-proof (no_inverse pm2.18) (ctx proof 172))
-                                    (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
-                                    (PropY)
-                                    (STV 1.0 0.9473684210526316))))
+                            ;!(test
+                            ;(collapse (query 10 kb (: $prf (PropY) $tv)))
+                                ;((:
+                                    ;(merge/revision
+                                    ;(rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                    ;(rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                    ;(PropY)
+                                    ;(STV 1.0 0.9473684210526316))))
+                                        ;; ax-1 test
+
+                                        ;; facts
+                                    !(compileadd kb (: fact-M (PropM) (STV 1.0 1.0)))
+                                        ;; from fact m we should be able to drive n->m
+                                        !(test
+                                            (collapse
+                                                (query 10 kb
+                                                    (: $prf
+                                                        (Implication
+                                                        (Premises (PropN))
+                                                        (Conclusions (PropM)))
+                                                        $tv)))
+                                                        ((:
+                                                            (merge/revision
+                                                            (rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                                            (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                                                (Implication
+                                                                (Premises (PropN))
+                                                                (Conclusions (PropM)))
+                                                                (STV 1.0 0.9473684210526316))))
+      
 
    
 
