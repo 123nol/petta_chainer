@@ -1,0 +1,49 @@
+!(import! &self ../../petta_chainer)
+!(import! &self ../axioms/metamath_axioms)
+
+    ;; idi test
+
+    ;; Facts
+;!(compileadd kb (: fact-P PropP (STV 1.0 1.0)))
+    ;;identity axiom should allow us to derive P->P
+    ;!(test
+    ;(collapse (query 10 kb (: $prf (PropP) $tv)))
+        ;((:
+            ;(merge/revision
+            ;(rule-proof (no_inverse pm2.18) (ctx proof 172))
+            ;(rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+            ;(PropP)
+            ;(STV 1.0 0.9473684210526316))))
+
+                ;;; a1ii test
+                ;; Facts
+            ;!(compileadd kb (:fact-A PropP (STV 1.0 1.0)))
+            ;!(compileadd kb (:fact-B PropP (STV 1.0 1.0)))
+
+                ;; if A and B are true then P is true
+                ;!(test
+                ;(collapse (query 10 kb (: $prf (PropA) $tv)))
+                    ;((:
+                        ;(merge/revision
+                        ;(rule-proof (no_inverse pm2.18) (ctx proof 172))
+                        ;(rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                        ;(PropA)
+                        ;(STV 1.0 0.9473684210526316))))
+                        ;; ax-mp test(modus ponens test)
+
+                            ;; facts
+                        !(compileadd kb (: fact-X PropX (STV 1.0 1.0)))
+                        !(compileadd kb (: fact-X-impl-Y (Implication (Premises PropX)) (Conclusions PropY)) (STV 1.0 1.0))
+
+                            ;;if x, x->y then y
+                            !(test
+                            (collapse (query 10 kb (: $prf (PropY) $tv)))
+                                ((:
+                                    (merge/revision
+                                    (rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                    (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                    (PropY)
+                                    (STV 1.0 0.9473684210526316))))
+
+   
+
