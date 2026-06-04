@@ -72,7 +72,7 @@
 
                                                                     ;;facts
                                                                     ;!(compileadd kb
-                                                                        ; (: fact-U-impl-V-impl-W
+                                                                        ;(: fact-U-impl-V-impl-W
                                                                             ;(Implication
                                                                             ;(Premises (PropU))
                                                                                 ;(Conclusions
@@ -109,30 +109,68 @@
 
 
                                                                                                                         ;; facts
-                                                                                                                        !(compileadd kb
-                                                                                                                            (: fact-not-K-impl-not-L
-                                                                                                                                (Implication
-                                                                                                                                (Premises (Not (PropK)))
-                                                                                                                                (Conclusions (Not (PropL))))
-                                                                                                                                (STV 1.0 1.0)))
+                                                                                                                        ;!(compileadd kb
+                                                                                                                            ;(: fact-not-K-impl-not-L
+                                                                                                                                ;(Implication
+                                                                                                                                ;(Premises (Not (PropK)))
+                                                                                                                                ;(Conclusions (Not (PropL))))
+                                                                                                                                ;(STV 1.0 1.0)))
                                                                                                                                     ;; if not k->not l then l->k test
 
-                                                                                                                                    !(test
-                                                                                                                                        (collapse
-                                                                                                                                            (query 10 kb
-                                                                                                                                                (: $prf
-                                                                                                                                                    (Implication
-                                                                                                                                                    (Premises (PropL))
-                                                                                                                                                    (Conclusions (PropK)))
-                                                                                                                                                    $tv)))
-                                                                                                                                                    ((:
-                                                                                                                                                        (merge/revision
-                                                                                                                                                        (rule-proof (no_inverse pm2.18) (ctx proof 172))
-                                                                                                                                                        (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
-                                                                                                                                                            (Implication
-                                                                                                                                                            (Premises (PropL))
-                                                                                                                                                            (Conclusions (PropK)))
-                                                                                                                                                            (STV 1.0 0.9473684210526316))))
+                                                                                                                                    ;!(test
+                                                                                                                                        ;(collapse
+                                                                                                                                            ;(query 10 kb
+                                                                                                                                                ;(: $prf
+                                                                                                                                                    ;(Implication
+                                                                                                                                                    ;(Premises (PropL))
+                                                                                                                                                    ;(Conclusions (PropK)))
+                                                                                                                                                    ;$tv)))
+                                                                                                                                                    ;((:
+                                                                                                                                                        ;(merge/revision
+                                                                                                                                                        ; (rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                                                                                                                                        ;(rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                                                                                                                                            ;(Implication
+                                                                                                                                                            ;(Premises (PropL))
+                                                                                                                                                            ;(Conclusions (PropK)))
+                                                                                                                                                            ;(STV 1.0 0.9473684210526316))))
+
+
+                                                                                                                                                                ;; test for axiom mp2
+                                                                                                                                                                ;;facts
+                                                                                                                                                                !(compileadd kb
+                                                                                                                                                                    (: fact-R
+                                                                                                                                                                    (PropR)
+                                                                                                                                                                    (STV 1.0 1.0)))
+
+                                                                                                                                                                        !(compileadd kb
+                                                                                                                                                                            (: fact-S
+                                                                                                                                                                            (PropS)
+                                                                                                                                                                            (STV 1.0 1.0)))
+                                                                                                                                                                                !(compileadd kb
+                                                                                                                                                                                    (: fact-R-impl-S-impl-T
+                                                                                                                                                                                        (Implication
+                                                                                                                                                                                        (Premises (PropR))
+                                                                                                                                                                                            (Conclusions
+                                                                                                                                                                                                (Implication
+                                                                                                                                                                                                (Premises (PropS))
+                                                                                                                                                                                                (Conclusions (PropT)))))
+                                                                                                                                                                                                (STV 1.0 1.0)))
+                                                                                                                                                                                                    !(test
+                                                                                                                                                                                                        (collapse
+                                                                                                                                                                                                            (query 10 kb
+                                                                                                                                                                                                                (: $prf
+                                                                                                                                                                                                                (PropT)
+                                                                                                                                                                                                                $tv)))
+                                                                                                                                                                                                                ((:
+                                                                                                                                                                                                                    (merge/revision
+                                                                                                                                                                                                                    (rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                                                                                                                                                                                                    (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                                                                                                                                                                                                    (PropT)
+                                                                                                                                                                                                                    (STV 1.0 0.9473684210526316))))
+                                                                                                                                                                                                    
+
+
+
                                                                                                                                               
 
                                                                                                                                             
