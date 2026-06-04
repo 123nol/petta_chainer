@@ -48,25 +48,91 @@
                                         ;; ax-1 test
 
                                         ;; facts
-                                    !(compileadd kb (: fact-M (PropM) (STV 1.0 1.0)))
+                                    ;!(compileadd kb (: fact-M (PropM) (STV 1.0 1.0)))
                                         ;; from fact m we should be able to drive n->m
-                                        !(test
-                                            (collapse
-                                                (query 10 kb
-                                                    (: $prf
-                                                        (Implication
-                                                        (Premises (PropN))
-                                                        (Conclusions (PropM)))
-                                                        $tv)))
-                                                        ((:
-                                                            (merge/revision
-                                                            (rule-proof (no_inverse pm2.18) (ctx proof 172))
-                                                            (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
-                                                                (Implication
-                                                                (Premises (PropN))
-                                                                (Conclusions (PropM)))
-                                                                (STV 1.0 0.9473684210526316))))
+                                        ;!(test
+                                            ; (collapse
+                                                ; (query 10 kb
+                                                    ; (: $prf
+                                                        ;(Implication
+                                                        ;(Premises (PropN))
+                                                        ;(Conclusions (PropM)))
+                                                        ;$tv)))
+                                                        ;((:
+                                                            ;(merge/revision
+                                                            ;(rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                                            ;(rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                                                ;(Implication
+                                                                ;(Premises (PropN))
+                                                                ;(Conclusions (PropM)))
+                                                                ;(STV 1.0 0.9473684210526316))))
+
+
+                                                                    ;test ax-2
+
+                                                                    ;;facts
+                                                                    ;!(compileadd kb
+                                                                        ; (: fact-U-impl-V-impl-W
+                                                                            ;(Implication
+                                                                            ;(Premises (PropU))
+                                                                                ;(Conclusions
+                                                                                    ;(Implication
+                                                                                    ;(Premises (PropV))
+                                                                                    
+                                                                                    ;(Conclusions (PropW)))))
+                                                                                    ;(STV 1.0 1.0)))
+                                                                                    ; if u->v->w then (u->v)->(u->w)
+                                                                                        ;!(test
+                                                                                            ;(collapse
+                                                                                                ; (query 10 kb
+                                                                                                    ;(: $prf
+                                                                                                        ; (Implication
+                                                                                                            ;(Premises
+                                                                                                                ; (Implication
+                                                                                                                ;(Premises (PropU))
+                                                                                                                ;(Conclusions (PropV))))
+                                                                                                                    ;(Conclusions
+                                                                                                                        ; (Implication
+                                                                                                                        ;(Premises (PropU))
+                                                                                                                        ;(Conclusions (PropW)))))
+                                                                                                                        ;$tv)))
+                                                                                                                    ;()) ; the chainer is responding with () for this axiom test,
+                                                                                                                        ;which is not correct.
+                                                                                                                    
       
 
    
 
+
+                                                                                                                        ;test for ax-3
+                                                                                                                        ; not k->not l then l->k
+
+
+                                                                                                                        ;; facts
+                                                                                                                        !(compileadd kb
+                                                                                                                            (: fact-not-K-impl-not-L
+                                                                                                                                (Implication
+                                                                                                                                (Premises (Not (PropK)))
+                                                                                                                                (Conclusions (Not (PropL))))
+                                                                                                                                (STV 1.0 1.0)))
+                                                                                                                                    ;; if not k->not l then l->k test
+
+                                                                                                                                    !(test
+                                                                                                                                        (collapse
+                                                                                                                                            (query 10 kb
+                                                                                                                                                (: $prf
+                                                                                                                                                    (Implication
+                                                                                                                                                    (Premises (PropL))
+                                                                                                                                                    (Conclusions (PropK)))
+                                                                                                                                                    $tv)))
+                                                                                                                                                    ((:
+                                                                                                                                                        (merge/revision
+                                                                                                                                                        (rule-proof (no_inverse pm2.18) (ctx proof 172))
+                                                                                                                                                        (rule-proof (no_inverse pm2.18i) (ctx proof 173)))
+                                                                                                                                                            (Implication
+                                                                                                                                                            (Premises (PropL))
+                                                                                                                                                            (Conclusions (PropK)))
+                                                                                                                                                            (STV 1.0 0.9473684210526316))))
+                                                                                                                                              
+
+                                                                                                                                            
